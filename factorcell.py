@@ -1,13 +1,11 @@
 import tensorflow as tf
-from tensorflow.python.ops import variable_scope as vs
-from tensorflow.python.ops import rnn_cell
-import code
 
 
-class FactorCell(rnn_cell.RNNCell):
+class FactorCell(tf.nn.rnn_cell.RNNCell):
   """LSTM cell with coupled input and forget gates."""
   
   def Lock(self):
+    """Used to lock in the personalization."""
     lock_ops = [tf.no_op()]
 
     if self.lowrank_adaptation:
@@ -39,7 +37,7 @@ class FactorCell(rnn_cell.RNNCell):
 
     input_size = num_units + embedding_size
 
-    with vs.variable_scope('factor_cell'):
+    with tf.variable_scope('factor_cell'):
       self.W = tf.get_variable('W', [input_size, 3 * self._num_units])
       self.lockedW = tf.Variable(tf.zeros_like(self.W), name='lockedW',
                                  collections=[tf.GraphKeys.LOCAL_VARIABLES])
@@ -88,14 +86,14 @@ class FactorCell(rnn_cell.RNNCell):
 
   @property
   def state_size(self):
-    return rnn_cell.LSTMStateTuple(self._num_units, self._num_units)
+    return tf.nn.rnn_cell.LSTMStateTuple(self._num_units, self._num_units)
     
   @property
   def output_size(self):
     return self._num_units
 
   def __call__(self, inputs, state, scope=None, reuse=None, use_locked=False):
-    with vs.variable_scope("hyper_lstm_cell", reuse=reuse):
+    with tf.variable_scope("hyper_lstm_cell", reuse=reuse):
       # Parameters of gates are concatenated into one multiply for efficiency.
       c, h = state
       the_input = tf.concat(axis=1, values=[inputs, h])
@@ -140,5 +138,5 @@ class FactorCell(rnn_cell.RNNCell):
       new_c = (c * forget_gate + input_gate * g)
       new_h = self._activation(new_c) * tf.sigmoid(o)
 
-      new_state = rnn_cell.LSTMStateTuple(new_c, new_h)
+      new_state = tf.nn.rnn_cell.LSTMStateTuple(new_c, new_h)
       return new_h, new_state
