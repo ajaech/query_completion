@@ -1,0 +1,11 @@
+{
+    "max_len": 60,
+    "num_units": 256,
+    "char_embed_size": 16,
+    "user_embed_size": 32,
+    "use_layer_norm": true,
+    "use_mikolov_adaptation": false,
+    "use_lowrank_adaptation": true,
+    "rank": 24,
+    "iters": 50000
+}
