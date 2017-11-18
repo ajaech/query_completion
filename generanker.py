@@ -1,14 +1,15 @@
 import argparse
+import copy
+import hashlib
+import os
 import pandas
 import tensorflow as tf
-import bunch
 from vocab import Vocab
-import random
 import numpy as np
 from model import Model
 import helper
-import os
-import copy 
+
+
 import sys
 from beam import BeamItem, BeamQueue
 
@@ -105,7 +106,7 @@ def GetCompletions(prefix, user_id, m):
     total_beam_size = 300
     beam_size = 8
 
-    for i in range(27):
+    for i in range(36):
         new_nodes = BeamQueue(max_size=total_beam_size)
         current_nodes = []
         for node in nodes:
@@ -150,22 +151,32 @@ df['user'] = df.user.apply(lambda x: 's' + str(x))
 m = MetaModel(args.expdir)
 
 def GetRankInList(query, qlist):
-    if query not in qlist:
-        return 0
-    return 1.0 / (1.0 + qlist.index(query))
+  if query not in qlist:
+    return 0
+  return 1.0 / (1.0 + qlist.index(query))
 
-scores = []
-for i in range(len(df)):
-    row = df.iloc[i]
-    
-    if len(row.query_) < 6:  # skip queries shorter than prefix
-        continue
-    prefix = row.query_[:5]
-    b = GetCompletions(prefix, m.user_vocab[row.user], m)
-    qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
-    score = GetRankInList(row.query_, qlist)
-    scores.append(score)
 
-    if np.mean(scores) > 0.0:
-      print 1.0 / np.mean(scores)
-      sys.stdout.flush()
+for i in range(9000):
+  row = df.iloc[i]
+  query_len = len(row.query_)
+
+  if query_len <= 3:
+    continue
+
+  # choose a random prefix length
+  hasher = hashlib.md5()
+  hasher.update(row.user)
+  hasher.update(row.query_)
+  prefix_len = int(hasher.hexdigest(), 16) % min(query_len - 2, 15)
+  prefix_len += 1  # always have at least a single character prefix
+
+  prefix = row.query_[:prefix_len]
+  b = GetCompletions(prefix, m.user_vocab[row.user], m)
+  qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
+  score = GetRankInList(row.query_, qlist)
+  
+  result = {'query': row.query_, 'prefix_len': int(prefix_len),
+            'score': score, 'user': row.user}
+  print result
+  if i % 10 == 0:
+    sys.stdout.flush()
