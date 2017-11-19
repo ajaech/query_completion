@@ -3,15 +3,13 @@ import copy
 import hashlib
 import os
 import pandas
-import tensorflow as tf
-from vocab import Vocab
-import numpy as np
-from model import Model
-import helper
-
-
 import sys
+import numpy as np
+import tensorflow as tf
+import helper
 from beam import BeamItem, BeamQueue
+from vocab import Vocab
+from model import Model
 
 
 parser = argparse.ArgumentParser()

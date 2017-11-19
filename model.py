@@ -94,5 +94,3 @@ class Model(object):
         self.beam_size = tf.placeholder_with_default(1, (), name='beam_size')
         self.next_prob = tf.nn.softmax(logits / self.temperature)
         self.selected_p, self.selected = tf.nn.top_k(self.next_prob, self.beam_size)
-
-

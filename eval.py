@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 import helper
-from dataset import Dataset
+from dataset import Dataset, LoadData
 from model import Model
 from metrics import MovingAvg
 from vocab import Vocab
@@ -31,27 +31,11 @@ tf.set_random_seed(int(time.time() * 1000))
 params = helper.GetParams(None, 'eval', args.expdir)
 
 
-def LoadData(filenames):
-  def Prepare(s):
-    if type(s) != str:
-        print s
-    s = str(s)
-    return ['<S>'] + list(s) + ['</S>']
-
-  dfs = []
-  for filename in filenames:
-    df = pandas.read_csv(filename, sep='\t', compression='gzip', header=None)
-    df.columns = ['user', 'query_', 'date']
-    df['query_'] = df.query_.apply(Prepare)
-    df['user'] = df.user.apply(lambda x: 's' + str(x))
-    dfs.append(df)
-  return pandas.concat(dfs)
-
-df = LoadData(args.data)
 char_vocab = Vocab.Load(os.path.join(args.expdir, 'char_vocab.pickle'))
 params.vocab_size = len(char_vocab)
 user_vocab = Vocab.Load(os.path.join(args.expdir, 'user_vocab.pickle'))
 params.user_vocab_size = len(user_vocab)
+df = LoadData(args.data)
 dataset = Dataset(df, char_vocab, user_vocab, max_len=params.max_len)
 
 
