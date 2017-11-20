@@ -53,3 +53,9 @@ def GetLine(x, y):
     x = x[nan_idx]
     model.fit(x.values.reshape(len(x), 1), y)
     return model
+
+def GetRankInList(query, qlist):
+  # returns the inverse rank of the item in the list
+  if query not in qlist:
+    return 0
+  return 1.0 / (1.0 + qlist.index(query))

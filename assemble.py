@@ -46,8 +46,6 @@ for dirname in glob.glob('/s0/ajaech/aolexps/*'):
   params['pplfinal'] = ppl
   rank = GetPPL('rank.txt')
   params['qrank'] = rank
-  rank2 = GetPPL('rank2.txt')
-  params['rank2'] = rank2
   results.append(params)
 
 

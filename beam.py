@@ -1,6 +1,22 @@
 import collections
-
+import numpy as np
 from Queue import PriorityQueue
+
+
+def InitBeam(phrase, user_id, m):
+  prev_c = np.zeros((1, m.params.num_units))
+  prev_h = np.zeros((1, m.params.num_units))
+  for word in phrase[:-1]:
+    feed_dict = {
+       m.model.prev_c: prev_c, 
+       m.model.prev_h: prev_h,
+       m.model.prev_word: [m.char_vocab[word]],
+       m.model.beam_size: 4
+    }
+    prev_c, prev_h = m.session.run(
+      [m.model.next_c, m.model.next_h], feed_dict)
+
+  return prev_c, prev_h
 
 
 class BeamItem(object):

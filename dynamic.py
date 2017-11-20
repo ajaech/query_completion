@@ -7,12 +7,13 @@ import pandas
 import numpy as np
 import tensorflow as tf
 import sys
+from beam import BeamItem, BeamQueue, InitBeam
 from dataset import LoadData, Dataset
+from metrics import GetRankInList
 from model import Model
 from vocab import Vocab
 import helper
 
-import code
 
 parser = argparse.ArgumentParser()
 parser.add_argument('expdir', help='experiment directory')
@@ -26,7 +27,7 @@ args = parser.parse_args()
 
 class MetaModel(object):
     
-    def __init__(self, expdir):
+    def __init__(self, expdir, learning_rate=args.learning_rate):
         self.params = helper.GetParams(os.path.join(expdir, 'params.json'),
                                        'eval', expdir)
         self.char_vocab = Vocab.Load(os.path.join(expdir, 'char_vocab.pickle'))
@@ -54,7 +55,7 @@ class MetaModel(object):
           self.train_op = tf.no_op()            
           if (self.params.use_lowrank_adaptation or 
               self.params.use_mikolov_adaptation):
-            optimizer = tf.train.GradientDescentOptimizer(args.learning_rate)
+            optimizer = tf.train.GradientDescentOptimizer(learning_rate)
             self.train_op = optimizer.minimize(self.model.avg_loss,
                                                var_list=[self.model.user_embed_mat])
             
@@ -75,6 +76,59 @@ class MetaModel(object):
             feed_dict)
         return c, words_in_batch
 
+    def Lock(self):
+        self.session.run(self.model.decoder_cell.lock_op,
+                         {self.model.user_ids: [0]})
+
+
+
+def GetCompletions(prefix, user_id, m):
+    cell_size = m.params.num_units
+    
+    m.Lock()
+
+    init_c, init_h = InitBeam(prefix, user_id, m)
+    nodes = [BeamItem(prefix, init_c, init_h)]
+    total_beam_size = 300
+    beam_size = 8
+
+    for i in range(36):
+        new_nodes = BeamQueue(max_size=total_beam_size)
+        current_nodes = []
+        for node in nodes:
+            if node.words[-1] == '</S>':  # don't extend past end-of-sentence token
+                new_nodes.Insert(node)
+            else:
+                current_nodes.append(node)
+        if len(current_nodes) == 0:
+            return new_nodes
+        
+        prev_c = np.vstack([item.prev_c for item in current_nodes])
+        prev_h = np.vstack([item.prev_h for item in current_nodes])
+        prev_words = np.array([m.char_vocab[item.words[-1]] for item in current_nodes])
+        
+        feed_dict = {
+            m.model.prev_word: prev_words,
+            m.model.prev_c: prev_c,
+            m.model.prev_h: prev_h,
+            m.model.beam_size: beam_size
+        }
+        current_word_id, current_word_p, prev_c, prev_h = m.session.run(
+            [m.model.selected, m.model.selected_p, m.model.next_c, m.model.next_h],
+            feed_dict)
+                
+        for i, node in enumerate(current_nodes):
+            node.prev_c = prev_c[i, :]
+            node.prev_h = prev_h[i, :]
+            new_words = [m.char_vocab[int(x)] for x in current_word_id[i, :]]
+            for new_word, top_value in zip(new_words, current_word_p[i, :]):
+                if new_word != '<UNK>':
+                    new_beam = copy.deepcopy(node)
+                    new_beam.Update(-np.log(top_value), new_word)
+                    new_nodes.Insert(new_beam)
+        nodes = new_nodes
+    return nodes
+
 
 mLow = MetaModel(args.expdir)
 
@@ -85,11 +139,36 @@ rows = []
 for user, grp in users:
     grp = grp.sort_values('date')
     mLow.session.run(mLow.reset_user_embed)
+
     for i in range(len(grp)):
         row = grp.iloc[i]
+        query_len = len(row.query_)
+
+        if query_len < 4:
+          continue
+
+        # run the beam search decoding
+        # choose a random prefix length
+        hasher = hashlib.md5()
+        hasher.update(row.user)
+        hasher.update(''.join(row.query_))
+        prefix_len = int(hasher.hexdigest(), 16) % min(query_len - 2, 15)
+        prefix_len += 1  # always have at least a single character prefix
+
+        prefix = row.query_[:prefix_len]
+        query = ''.join(row.query_[1:-1])
+        b = GetCompletions(prefix, mLow.user_vocab[row.user], mLow)
+        qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
+        score = GetRankInList(query, qlist)
+
         c, words_in_batch = mLow.Train(row.query_, row.user)
-        rows.append({'cost': c, 'user': user, 'idx': i, 
-                     'length': words_in_batch})
+        result = {'query': query, 'prefix_len': int(prefix_len),
+                  'score': score, 'user': user, 'idx': i, 
+                  'length': words_in_batch, 'cost': c}
+
+        rows.append(result)
         print rows[-1]
-    if len(rows) > 2500:
+        if i % 5 == 0:
+          sys.stdout.flush()  # flush every so often
+    if len(rows) > 3500:
         break

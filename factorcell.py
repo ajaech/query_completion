@@ -40,12 +40,14 @@ class FactorCell(tf.nn.rnn_cell.RNNCell):
     with tf.variable_scope('factor_cell'):
       self.W = tf.get_variable('W', [input_size, 3 * self._num_units])
       self.lockedW = tf.Variable(tf.zeros_like(self.W), name='lockedW',
-                                 collections=[tf.GraphKeys.LOCAL_VARIABLES])
+                                 collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                                 trainable=False)
 
       self.bias = tf.get_variable('bias', [3 * self._num_units],
                                   initializer=tf.constant_initializer(0.0, tf.float32))
       self.lockedBias = tf.Variable(tf.zeros_like(self.bias), name='lockedBias',
-                                    collections=[tf.GraphKeys.LOCAL_VARIABLES])
+                                    collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                                    trainable=False)
 
       if self.layer_norm:
         self.gammas = []

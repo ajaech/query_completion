@@ -2,7 +2,6 @@ import argparse
 import collections
 import numpy as np
 import pickle
-import re
 
 
 class Vocab(object):
@@ -20,7 +19,6 @@ class Vocab(object):
     self.word_to_idx = dict(zip(all_tokens, range(self.vocab_size)))
     self.idx_to_word = dict(zip(self.word_to_idx.values(),
                             self.word_to_idx.keys()))
-
 
     if token_counts:
       self.token_counts = [token_counts[self.idx_to_word[i]] for i in
@@ -110,43 +108,6 @@ class Vocab(object):
     else:
       print 'ERROR: bad file extension'
 
-  @staticmethod
-  def Graphemes(s):
-    """ Given a string return a list of graphemes.
-
-    Args:
-      s the input string
-
-    Returns:
-      A list of graphemes.
-    """
-    graphemes = []
-    current = []
-
-    if type(s) == unicode:
-      s = s.encode('utf8')
-
-    for c in s:
-      val = ord(c) & 0xC0
-      if val == 128:
-        # this is a continuation
-        current.append(c)
-      else:
-        # this is a new grapheme
-        if len(current) > 0:
-          graphemes.append(''.join(current))
-          current = []
-
-        if val < 128:
-          graphemes.append(c)  # single byte grapheme
-        else:
-          current.append(c)  # multi-byte grapheme
-
-    if len(current) > 0:
-      graphemes.append(''.join(current))
-
-    return graphemes
-
 
 if __name__ == '__main__':
   """Print the contents of the vocabulary."""
@@ -155,9 +116,6 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   if args.filename.endswith('.pickle'):
-    #with open(args.filename, 'rb') as f:
-    #  vs = pickle.load(f)
-    #  v = vs['subreddit']
     v = Vocab.Load(args.filename)
 
     for i in v.GetWords():
