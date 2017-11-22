@@ -9,6 +9,7 @@ class MetaModel(object):
   """Helper class for loading models."""
 
   def __init__(self, expdir):
+    self.expdir = expdir
     self.params = helper.GetParams(os.path.join(expdir, 'char_vocab.pickle'), 'eval', 
                                    expdir)
     self.char_vocab = Vocab.Load(os.path.join(expdir, 'char_vocab.pickle'))
@@ -28,7 +29,14 @@ class MetaModel(object):
   def MakeSession(self, threads):
     config = tf.ConfigProto(inter_op_parallelism_threads=threads,
                             intra_op_parallelism_threads=threads)
-    self.session = tf.Session(config=config)
+    with self.graph.as_default():
+      self.session = tf.Session(config=config)
+
+  def Restore(self):
+    with self.graph.as_default():
+      saver = tf.train.Saver(tf.global_variables())
+      self.session.run(tf.global_variables_initializer())
+      saver.restore(self.session, os.path.join(self.expdir, 'model.bin'))
 
 
 class Model(object):

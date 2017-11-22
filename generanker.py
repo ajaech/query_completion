@@ -6,11 +6,9 @@ import pandas
 import numpy as np
 import tensorflow as tf
 import sys
-import helper
 from beam import BeamItem, BeamQueue, InitBeam
 from metrics import GetRankInList
-from model import MetaModel, Model
-from vocab import Vocab
+from model import MetaModel
 
 
 parser = argparse.ArgumentParser()
@@ -24,12 +22,8 @@ class GenModel(MetaModel):
     
   def __init__(self, expdir):
     super(GenModel, self).__init__(expdir)
-        
-    with self.graph.as_default():            
-      saver = tf.train.Saver(tf.global_variables())
-      self.MakeSession(args.threads)
-      self.session.run(tf.global_variables_initializer())
-      saver.restore(self.session, os.path.join(expdir, 'model.bin'))           
+    self.MakeSession(args.threads)    
+    self.Restore()
 
 
 def GetCompletions(prefix, user_id, m):

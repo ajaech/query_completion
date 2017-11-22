@@ -1,9 +1,7 @@
 import argparse
-import bunch
 import logging
 import os
 import pandas
-import time
 import numpy as np
 import tensorflow as tf
 
@@ -26,10 +24,8 @@ args = parser.parse_args()
 
 expdir = args.expdir
 
-tf.set_random_seed(int(time.time() * 1000))
 
 params = helper.GetParams(None, 'eval', args.expdir)
-
 
 logging.basicConfig(filename=os.path.join(expdir, 'logfile.more.txt'),
                     level=logging.INFO)

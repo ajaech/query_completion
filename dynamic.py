@@ -2,18 +2,14 @@ import argparse
 import copy
 import hashlib
 import os
-import pandas
 import numpy as np
 import tensorflow as tf
 import sys
 from beam import BeamItem, BeamQueue, InitBeam
 from dataset import LoadData, Dataset
 from metrics import GetRankInList
-from model import MetaModel, Model
-from vocab import Vocab
-import helper
+from model import MetaModel
 
-import code
 
 parser = argparse.ArgumentParser()
 parser.add_argument('expdir', help='experiment directory')
@@ -29,13 +25,10 @@ class DynamicModel(MetaModel):
     
     def __init__(self, expdir, learning_rate=args.learning_rate):
         super(DynamicModel, self).__init__(expdir)
-        
+
+        self.MakeSession(args.threads)
+        self.Restore()
         with self.graph.as_default():
-          saver = tf.train.Saver(tf.global_variables())
-          self.MakeSession(args.threads)
-          self.session.run(tf.global_variables_initializer())
-          saver.restore(self.session, os.path.join(expdir, 'model.bin'))
-            
           unk_embed = self.model.user_embed_mat.eval(
               session=self.session)[self.user_vocab['<UNK>']]
           self.reset_user_embed = tf.assign(
