@@ -7,5 +7,6 @@
     "use_mikolov_adaptation": false,
     "use_lowrank_adaptation": true,
     "rank": 24,
-    "iters": 50000
+    "iters": 50000,
+    "batch_size": 48
 }

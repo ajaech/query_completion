@@ -67,8 +67,8 @@ params.vocab_size = len(char_vocab)
 user_vocab = Vocab.MakeFromData([[u] for u in df.user], min_count=15)
 user_vocab.Save(os.path.join(args.expdir, 'user_vocab.pickle'))
 params.user_vocab_size = len(user_vocab)
-dataset = Dataset(df, char_vocab, user_vocab, max_len=params.max_len)
-
+dataset = Dataset(df, char_vocab, user_vocab, max_len=params.max_len,
+                  batch_size=params.batch_size)
 
 model = Model(params)
 saver = tf.train.Saver(tf.global_variables())
@@ -78,7 +78,7 @@ session = tf.Session(config=config)
 session.run(tf.global_variables_initializer())
 #session.run([model.prev_c.initializer, model.prev_h.initializer])
 
-avg_loss = MovingAvg(0.97)
+avg_loss = MovingAvg(0.97)  # exponential moving average of the training loss
 for idx in range(params.iters):
   feed_dict = dataset.GetFeedDict(model)
   c, _ = session.run([model.avg_loss, model.train_op], feed_dict)
