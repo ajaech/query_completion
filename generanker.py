@@ -9,7 +9,7 @@ import sys
 import helper
 from beam import BeamItem, BeamQueue, InitBeam
 from metrics import GetRankInList
-from model import Model
+from model import MetaModel, Model
 from vocab import Vocab
 
 
@@ -20,30 +20,16 @@ parser.add_argument('--threads', type=int, default=12,
 args = parser.parse_args()
 
 
-class MetaModel(object):
+class GenModel(MetaModel):
     
-    def __init__(self, expdir):
-        self.params = helper.GetParams(os.path.join(expdir, 'params.json'),
-                                       'eval', expdir)
-        self.char_vocab = Vocab.Load(os.path.join(expdir, 'char_vocab.pickle'))
-        self.user_vocab = Vocab.Load(os.path.join(expdir, 'user_vocab.pickle'))
-        self.params.vocab_size = len(self.char_vocab)
-        self.params.user_vocab_size = len(self.user_vocab)
+  def __init__(self, expdir):
+    super(GenModel, self).__init__(expdir)
         
-        with tf.Graph().as_default():
-            self.model = Model(self.params, training_mode=False)
-            
-            saver = tf.train.Saver(tf.global_variables())
-            config = tf.ConfigProto(inter_op_parallelism_threads=args.threads,
-                                    intra_op_parallelism_threads=args.threads)
-            self.session = tf.Session(config=config)
-            self.session.run(tf.global_variables_initializer())
-            saver.restore(self.session, os.path.join(expdir, 'model.bin'))
-           
-    def Lock(self, user_id):
-        self.session.run(self.model.decoder_cell.lock_op,
-                         {self.model.user_ids: [user_id]})
-
+    with self.graph.as_default():            
+      saver = tf.train.Saver(tf.global_variables())
+      self.MakeSession(args.threads)
+      self.session.run(tf.global_variables_initializer())
+      saver.restore(self.session, os.path.join(expdir, 'model.bin'))           
 
 
 def GetCompletions(prefix, user_id, m):
@@ -89,7 +75,7 @@ def GetCompletions(prefix, user_id, m):
             for new_word, top_value in zip(new_words, current_word_p[i, :]):
                 if new_word != '<UNK>':
                     new_beam = copy.deepcopy(node)
-                    new_beam.Update(-np.log(top_value), new_word)
+                    new_beam.Update(-top_value, new_word)
                     new_nodes.Insert(new_beam)
         nodes = new_nodes
     return nodes
@@ -99,7 +85,7 @@ df = pandas.read_csv('/g/ssli/data/LowResourceLM/aol/queries01.dev.txt.gz',
 df.columns = ['user', 'query_', 'date']
 df['user'] = df.user.apply(lambda x: 's' + str(x))
 
-m = MetaModel(args.expdir)
+m = GenModel(args.expdir)
 
 
 for i in range(9000):

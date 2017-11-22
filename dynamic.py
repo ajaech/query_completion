@@ -1,7 +1,6 @@
 import argparse
 import copy
 import hashlib
-import json
 import os
 import pandas
 import numpy as np
@@ -10,10 +9,11 @@ import sys
 from beam import BeamItem, BeamQueue, InitBeam
 from dataset import LoadData, Dataset
 from metrics import GetRankInList
-from model import Model
+from model import MetaModel, Model
 from vocab import Vocab
 import helper
 
+import code
 
 parser = argparse.ArgumentParser()
 parser.add_argument('expdir', help='experiment directory')
@@ -25,23 +25,14 @@ parser.add_argument('--threads', type=int, default=12,
 args = parser.parse_args()
 
 
-class MetaModel(object):
+class DynamicModel(MetaModel):
     
     def __init__(self, expdir, learning_rate=args.learning_rate):
-        self.params = helper.GetParams(os.path.join(expdir, 'params.json'),
-                                       'eval', expdir)
-        self.char_vocab = Vocab.Load(os.path.join(expdir, 'char_vocab.pickle'))
-        self.user_vocab = Vocab.Load(os.path.join(expdir, 'user_vocab.pickle'))
-        self.params.vocab_size = len(self.char_vocab)
-        self.params.user_vocab_size = len(self.user_vocab)
+        super(DynamicModel, self).__init__(expdir)
         
-        with tf.Graph().as_default():
-          self.model = Model(self.params, training_mode=False)
-            
+        with self.graph.as_default():
           saver = tf.train.Saver(tf.global_variables())
-          config = tf.ConfigProto(inter_op_parallelism_threads=args.threads,
-                                  intra_op_parallelism_threads=args.threads)
-          self.session = tf.Session(config=config)
+          self.MakeSession(args.threads)
           self.session.run(tf.global_variables_initializer())
           saver.restore(self.session, os.path.join(expdir, 'model.bin'))
             
@@ -76,11 +67,6 @@ class MetaModel(object):
             feed_dict)
         return c, words_in_batch
 
-    def Lock(self):
-        self.session.run(self.model.decoder_cell.lock_op,
-                         {self.model.user_ids: [0]})
-
-
 
 def GetCompletions(prefix, user_id, m):
     cell_size = m.params.num_units
@@ -108,14 +94,14 @@ def GetCompletions(prefix, user_id, m):
         prev_words = np.array([m.char_vocab[item.words[-1]] for item in current_nodes])
         
         feed_dict = {
-            m.model.prev_word: prev_words,
-            m.model.prev_c: prev_c,
-            m.model.prev_h: prev_h,
-            m.model.beam_size: beam_size
+          m.model.prev_word: prev_words,
+          m.model.prev_c: prev_c,
+          m.model.prev_h: prev_h,
+          m.model.beam_size: beam_size
         }
         current_word_id, current_word_p, prev_c, prev_h = m.session.run(
-            [m.model.selected, m.model.selected_p, m.model.next_c, m.model.next_h],
-            feed_dict)
+          [m.model.selected, m.model.selected_p, m.model.next_c, m.model.next_h],
+          feed_dict)
                 
         for i, node in enumerate(current_nodes):
             node.prev_c = prev_c[i, :]
@@ -124,13 +110,13 @@ def GetCompletions(prefix, user_id, m):
             for new_word, top_value in zip(new_words, current_word_p[i, :]):
                 if new_word != '<UNK>':
                     new_beam = copy.deepcopy(node)
-                    new_beam.Update(-np.log(top_value), new_word)
+                    new_beam.Update(-top_value, new_word)
                     new_nodes.Insert(new_beam)
         nodes = new_nodes
     return nodes
 
 
-mLow = MetaModel(args.expdir)
+mLow = DynamicModel(args.expdir)
 
 df = LoadData(args.data)
 users = df.groupby('user')
@@ -170,5 +156,5 @@ for user, grp in users:
         print rows[-1]
         if i % 5 == 0:
           sys.stdout.flush()  # flush every so often
-    if len(rows) > 3500:
+    if len(rows) > 12000:
         break

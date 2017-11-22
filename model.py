@@ -1,9 +1,39 @@
+import os
 import tensorflow as tf
 from factorcell import FactorCell
+from vocab import Vocab
+import helper
+
+
+class MetaModel(object):
+  """Helper class for loading models."""
+
+  def __init__(self, expdir):
+    self.params = helper.GetParams(os.path.join(expdir, 'char_vocab.pickle'), 'eval', 
+                                   expdir)
+    self.char_vocab = Vocab.Load(os.path.join(expdir, 'char_vocab.pickle'))
+    self.user_vocab = Vocab.Load(os.path.join(expdir, 'user_vocab.pickle'))
+    self.params.vocab_size = len(self.char_vocab)
+    self.params.user_vocab_size = len(self.user_vocab)
+
+    # construct the tensorflow graph
+    self.graph = tf.Graph()
+    with self.graph.as_default():
+      self.model = Model(self.params, training_mode=False)
+
+  def Lock(self, user_id=0):
+      self.session.run(self.model.decoder_cell.lock_op,
+                       {self.model.user_ids: [user_id]})
+
+  def MakeSession(self, threads):
+    config = tf.ConfigProto(inter_op_parallelism_threads=threads,
+                            intra_op_parallelism_threads=threads)
+    self.session = tf.Session(config=config)
 
 
 class Model(object):
-    
+    """Defines the Tensorflow graph for training and testing a model."""
+
     def __init__(self, params, training_mode=True):
         self.params = params
         self.BuildGraph(params, training_mode=training_mode)
@@ -93,4 +123,6 @@ class Model(object):
                            transpose_b=True) + self.char_bias    
         self.beam_size = tf.placeholder_with_default(1, (), name='beam_size')
         self.next_prob = tf.nn.softmax(logits / self.temperature)
-        self.selected_p, self.selected = tf.nn.top_k(self.next_prob, self.beam_size)
+        self.next_log_prob = tf.nn.log_softmax(logits / self.temperature)
+        self.selected_p, self.selected = tf.nn.top_k(
+            self.next_log_prob, self.beam_size)

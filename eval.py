@@ -30,7 +30,6 @@ tf.set_random_seed(int(time.time() * 1000))
 
 params = helper.GetParams(None, 'eval', args.expdir)
 
-
 char_vocab = Vocab.Load(os.path.join(args.expdir, 'char_vocab.pickle'))
 params.vocab_size = len(char_vocab)
 user_vocab = Vocab.Load(os.path.join(args.expdir, 'user_vocab.pickle'))
