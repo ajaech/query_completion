@@ -3,7 +3,6 @@ import sys
 
 import numpy as np
 import tensorflow as tf
-from sklearn import linear_model
 
 
 class MovingAvg(object):
@@ -44,15 +43,6 @@ def PrintParams(handle=sys.stdout.write):
   handle(fmt_str.format('total', '', param_count))
   if handle==sys.stdout.write:
     sys.stdout.flush()
-
-
-def GetLine(x, y):
-    model = linear_model.LinearRegression()
-    nan_idx = ~(np.isnan(x) | np.isnan(y))
-    y = y[nan_idx]
-    x = x[nan_idx]
-    model.fit(x.values.reshape(len(x), 1), y)
-    return model
 
 def GetRankInList(query, qlist):
   # returns the inverse rank of the item in the list
