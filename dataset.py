@@ -1,15 +1,15 @@
 import pandas
 import numpy as np
 
+
 def LoadData(filenames):
   def Prepare(s):
-    if type(s) != str:
-        print s
     s = str(s)
     return ['<S>'] + list(s) + ['</S>']
 
   dfs = []
   for filename in filenames:
+    print filename
     df = pandas.read_csv(filename, sep='\t', compression='gzip', header=None)
     df.columns = ['user', 'query_', 'date']
     df['query_'] = df.query_.apply(Prepare)
