@@ -23,45 +23,51 @@ args = parser.parse_args()
 
 class DynamicModel(MetaModel):
     
-    def __init__(self, expdir, learning_rate=args.learning_rate):
-        super(DynamicModel, self).__init__(expdir)
+  def __init__(self, expdir, learning_rate=args.learning_rate):
+    super(DynamicModel, self).__init__(expdir)
 
-        self.MakeSession(args.threads)
-        self.Restore()
-        with self.graph.as_default():
-          unk_embed = self.model.user_embed_mat.eval(
-              session=self.session)[self.user_vocab['<UNK>']]
-          self.reset_user_embed = tf.assign(
-              self.model.user_embed_mat, np.expand_dims(unk_embed, 0),
-              validate_shape=False)
-          self.session.run(self.reset_user_embed)
+    self.MakeSession(args.threads)
+    self.Restore()
+    with self.graph.as_default():
+      self.char_tensor = tf.constant(self.char_vocab.GetWords(), name='char_tensor')
+      self.beam_chars = tf.nn.embedding_lookup(self.char_tensor, self.model.selected)
 
-          self.train_op = tf.no_op()            
-          if (self.params.use_lowrank_adaptation or 
-              self.params.use_mikolov_adaptation):
-            optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-            self.train_op = optimizer.minimize(self.model.avg_loss,
-                                               var_list=[self.model.user_embed_mat])
+      unk_embed = self.model.user_embed_mat.eval(
+          session=self.session)[self.user_vocab['<UNK>']]
+      self.reset_user_embed = tf.assign(
+          self.model.user_embed_mat, np.expand_dims(unk_embed, 0),
+          validate_shape=False)
+      self.session.run(self.reset_user_embed)
+
+      self.train_op = tf.no_op()            
+      if (self.params.use_lowrank_adaptation or 
+          self.params.use_mikolov_adaptation):
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+        self.train_op = optimizer.minimize(self.model.avg_loss,
+                                           var_list=[self.model.user_embed_mat])
             
-    def Train(self, query, user):
-        qIds = np.zeros((1, self.params.max_len))
+  def Train(self, query, user):
+    qIds = np.zeros((1, self.params.max_len))
         
-        for i in range(min(60, len(query))):
-            qIds[0, i] = self.char_vocab[query[i]]
+    for i in range(min(60, len(query))):
+      qIds[0, i] = self.char_vocab[query[i]]
         
-        feed_dict = {
-            self.model.user_ids: np.array([self.user_vocab[user]]),
-            self.model.query_lengths: np.array([len(query)]),
-            self.model.queries: qIds
-        }
+    feed_dict = {
+      self.model.user_ids: np.array([self.user_vocab[user]]),
+      self.model.query_lengths: np.array([len(query)]),
+      self.model.queries: qIds
+    }
         
-        c, words_in_batch, _ = self.session.run(
-            [self.model.avg_loss, self.model.words_in_batch, self.train_op], 
-            feed_dict)
-        return c, words_in_batch
+    c, words_in_batch, _ = self.session.run(
+        [self.model.avg_loss, self.model.words_in_batch, self.train_op], 
+        feed_dict)
+    return c, words_in_batch
 
+time_in_tf = 0.0
 
 def GetCompletions(prefix, user_id, m):
+    global time_in_tf
+    time_in_tf = 0.0
     cell_size = m.params.num_units
     
     m.Lock()
@@ -75,12 +81,12 @@ def GetCompletions(prefix, user_id, m):
         new_nodes = BeamQueue(max_size=total_beam_size)
         current_nodes = []
         for node in nodes:
-            if node.words[-1] == '</S>':  # don't extend past end-of-sentence token
-                new_nodes.Insert(node)
-            else:
-                current_nodes.append(node)
+          if node.words[-1] == '</S>':  # don't extend past end-of-sentence token
+            new_nodes.Insert(node)
+          else:
+            current_nodes.append(node)
         if len(current_nodes) == 0:
-            return new_nodes
+          return new_nodes
         
         prev_c = np.vstack([item.prev_c for item in current_nodes])
         prev_h = np.vstack([item.prev_h for item in current_nodes])
@@ -92,19 +98,19 @@ def GetCompletions(prefix, user_id, m):
           m.model.prev_h: prev_h,
           m.model.beam_size: beam_size
         }
-        current_word_id, current_word_p, prev_c, prev_h = m.session.run(
-          [m.model.selected, m.model.selected_p, m.model.next_c, m.model.next_h],
+
+        current_char, current_char_p, prev_c, prev_h = m.session.run(
+          [m.beam_chars, m.model.selected_p, m.model.next_c, m.model.next_h],
           feed_dict)
-                
+
         for i, node in enumerate(current_nodes):
-            node.prev_c = prev_c[i, :]
-            node.prev_h = prev_h[i, :]
-            new_words = [m.char_vocab[int(x)] for x in current_word_id[i, :]]
-            for new_word, top_value in zip(new_words, current_word_p[i, :]):
-                if new_word != '<UNK>':
-                    new_beam = copy.deepcopy(node)
-                    new_beam.Update(-top_value, new_word)
-                    new_nodes.Insert(new_beam)
+          node.prev_c = prev_c[i, :]
+          node.prev_h = prev_h[i, :]
+          for new_word, top_value in zip(current_char[i, :], -current_char_p[i, :]):
+            if new_word != '<UNK>' and new_nodes.CheckBound(top_value + node.Cost()):
+              new_beam = copy.deepcopy(node)
+              new_beam.Update(top_value, new_word)
+              new_nodes.Insert(new_beam)
         nodes = new_nodes
     return nodes
 
@@ -149,5 +155,5 @@ for user, grp in users:
         print rows[-1]
         if i % 5 == 0:
           sys.stdout.flush()  # flush every so often
-    if len(rows) > 12000:
+    if len(rows) > 24000:
         break
