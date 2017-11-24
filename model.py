@@ -21,12 +21,15 @@ class MetaModel(object):
     self.graph = tf.Graph()
     with self.graph.as_default():
       self.model = Model(self.params, training_mode=False)
+      self.char_tensor = tf.constant(self.char_vocab.GetWords(), name='char_tensor')
+      self.beam_chars = tf.nn.embedding_lookup(self.char_tensor, self.model.selected)
+
 
   def Lock(self, user_id=0):
       self.session.run(self.model.decoder_cell.lock_op,
                        {self.model.user_ids: [user_id]})
 
-  def MakeSession(self, threads):
+  def MakeSession(self, threads=8):
     config = tf.ConfigProto(inter_op_parallelism_threads=threads,
                             intra_op_parallelism_threads=threads)
     with self.graph.as_default():

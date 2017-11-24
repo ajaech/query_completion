@@ -17,6 +17,9 @@ parser.add_argument('--data', type=str, action='append', dest='data',
 parser.add_argument('--learning_rate', type=float, default=0.3)
 parser.add_argument('--threads', type=int, default=12,
                     help='how many threads to use in tensorflow')
+parser.add_argument('--tuning', action='store_true', dest='tuning',
+                    help='when tuning don\'t do beam search decoding',
+                    default=False)
 args = parser.parse_args()
 
 
@@ -28,9 +31,6 @@ class DynamicModel(MetaModel):
     self.MakeSession(args.threads)
     self.Restore()
     with self.graph.as_default():
-      self.char_tensor = tf.constant(self.char_vocab.GetWords(), name='char_tensor')
-      self.beam_chars = tf.nn.embedding_lookup(self.char_tensor, self.model.selected)
-
       unk_embed = self.model.user_embed_mat.eval(
           session=self.session)[self.user_vocab['<UNK>']]
       self.reset_user_embed = tf.assign(
@@ -80,24 +80,28 @@ for user, grp in users:
     if query_len < 4:
       continue
 
-    # run the beam search decoding
-    # choose a random prefix length
-    hasher = hashlib.md5()
-    hasher.update(row.user)
-    hasher.update(''.join(row.query_))
-    prefix_len = int(hasher.hexdigest(), 16) % min(query_len - 2, 15)
-    prefix_len += 1  # always have at least a single character prefix
-
-    prefix = row.query_[:prefix_len]
     query = ''.join(row.query_[1:-1])
-    b = GetCompletions(prefix, 0, mLow)  # always use userid=0
-    qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
-    score = GetRankInList(query, qlist)
+    result = {'query': query, 'user': row.user, 'idx': i}
+
+    # run the beam search decoding
+    if not args.tuning:
+      # choose a random prefix length
+      hasher = hashlib.md5()
+      hasher.update(row.user)
+      hasher.update(''.join(row.query_))
+      prefix_len = int(hasher.hexdigest(), 16) % min(query_len - 2, 15)
+      prefix_len += 1  # always have at least a single character prefix
+
+      prefix = row.query_[:prefix_len]
+      b = GetCompletions(prefix, 0, mLow)  # always use userid=0
+      qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
+      score = GetRankInList(query, qlist)
+      result['score'] = score
+      result['prefix_len'] = int(prefix_len)
 
     c, words_in_batch = mLow.Train(row.query_, row.user)
-    result = {'query': query, 'prefix_len': int(prefix_len),
-              'score': score, 'user': user, 'idx': i, 
-              'length': words_in_batch, 'cost': c}
+    result['length'] = words_in_batch
+    result['cost'] = c
 
     rows.append(result)
     print rows[-1]

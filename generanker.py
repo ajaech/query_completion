@@ -43,7 +43,7 @@ for i in range(9000):
   prefix_len += 1  # always have at least a single character prefix
 
   prefix = row.query_[:prefix_len]
-  b = GetCompletions(prefix, m.user_vocab[row.user], m)
+  b = GetCompletions(['<S>'] + list(prefix), m.user_vocab[row.user], m)
   qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
   score = GetRankInList(row.query_, qlist)
   

@@ -1,5 +1,4 @@
 import argparse
-import os
 import numpy as np
 
 from dataset import Dataset, LoadData

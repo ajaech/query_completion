@@ -41,13 +41,12 @@ class Dataset(object):
         f1 = np.zeros((self.batch_size, self.max_len))
         len_1 = np.zeros(self.batch_size)
         user_ids = np.zeros(self.batch_size)
-        for i in range(len(grp)):
+        for i in xrange(len(grp)):
             row = grp.iloc[i]
             len_1[i] = min(self.max_len, len(row.query_))
             user_ids[i] = self.user_vocab[row.user]
             for j in range(int(len_1[i])):
                 f1[i, j] = self.char_vocab[row.query_[j]]
-
                 
         return {
             model.queries: f1,
