@@ -116,8 +116,8 @@ def GetCompletions(prefix, user_id, m):
     for i, node in enumerate(current_nodes):
       node.prev_c = prev_c[i, :]
       node.prev_h = prev_h[i, :]
-      for new_word, top_value in zip(current_char[i, :], -current_char_p[i, :]):
-        if new_word != '<UNK>' and new_nodes.CheckBound(top_value + node.Cost()):
+      for new_word, top_value in zip(current_char[i, :], current_char_p[i, :]):
+        if new_word != '<UNK>' and new_nodes.CheckBound(top_value + node.log_probs):
           words_copy = copy.deepcopy(node.words)
           words_copy.append(new_word)
           new_beam = BeamItem(words_copy, node.prev_c, node.prev_h)
