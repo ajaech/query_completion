@@ -128,12 +128,13 @@ class Model(object):
                                                                use_locked=True)
             
         with tf.variable_scope('rnn', reuse=True):
-            proj_result = tf.layers.dense(result, self.params.char_embed_size,
-                                          reuse=True, name='proj')
+          proj_result = tf.layers.dense(result, self.params.char_embed_size,
+                                        reuse=True, name='proj')
         logits = tf.matmul(proj_result, self.char_embeddings, 
-                           transpose_b=True) + self.char_bias    
-        self.beam_size = tf.placeholder_with_default(1, (), name='beam_size')
-        self.next_prob = tf.nn.softmax(logits / self.temperature)
+                           transpose_b=True) + self.char_bias
+        prevent_unk = tf.one_hot([0], self.params.vocab_size, -30.0)
+        self.next_prob = tf.nn.softmax(prevent_unk + logits / self.temperature)
         self.next_log_prob = tf.nn.log_softmax(logits / self.temperature)
+        self.beam_size = tf.placeholder_with_default(1, (), name='beam_size')
         log_probs, self.selected = tf.nn.top_k(self.next_log_prob, self.beam_size)
         self.selected_p = -log_probs

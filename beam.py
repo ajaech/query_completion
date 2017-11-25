@@ -79,13 +79,12 @@ class BeamQueue(object):
     raise StopIteration
 
 
-def GetCompletions(prefix, user_id, m):
+def GetCompletions(prefix, user_id, m, branching_factor=8):
   m.Lock(user_id)  # pre-compute the adaptive recurrent matrix
 
   init_c, init_h = InitBeam(prefix, user_id, m)
   nodes = [BeamItem(prefix, init_c, init_h)]
   total_beam_size = 300
-  beam_size = 8
 
   for i in range(36):
     new_nodes = BeamQueue(max_size=total_beam_size)
@@ -106,7 +105,7 @@ def GetCompletions(prefix, user_id, m):
       m.model.prev_word: prev_words,
       m.model.prev_c: prev_c,
       m.model.prev_h: prev_h,
-      m.model.beam_size: beam_size
+      m.model.beam_size: branching_factor
     }
 
     current_char, current_char_p, prev_c, prev_h = m.session.run(
@@ -114,14 +113,13 @@ def GetCompletions(prefix, user_id, m):
       feed_dict)
 
     for i, node in enumerate(current_nodes):
-      node.prev_c = prev_c[i, :]
-      node.prev_h = prev_h[i, :]
       for new_word, top_value in zip(current_char[i, :], current_char_p[i, :]):
-        if new_word != '<UNK>' and new_nodes.CheckBound(top_value + node.log_probs):
-          words_copy = copy.deepcopy(node.words)
+        new_cost = top_value + node.log_probs
+        if new_nodes.CheckBound(new_cost):
+          words_copy = copy.copy(node.words)
           words_copy.append(new_word)
-          new_beam = BeamItem(words_copy, node.prev_c, node.prev_h)
-          new_beam.log_probs = node.log_probs + top_value
+          new_beam = BeamItem(words_copy, prev_c[i, :], prev_h[i, :])
+          new_beam.log_probs = new_cost
           new_nodes.Insert(new_beam)
     nodes = new_nodes
   return nodes
