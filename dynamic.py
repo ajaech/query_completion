@@ -32,7 +32,7 @@ class DynamicModel(MetaModel):
     self.Restore()
     with self.graph.as_default():
       unk_embed = self.model.user_embed_mat.eval(
-          session=self.session)[self.user_vocab['<UNK>']]
+        session=self.session)[self.user_vocab['<UNK>']]
       self.reset_user_embed = tf.assign(
           self.model.user_embed_mat, np.expand_dims(unk_embed, 0),
           validate_shape=False)

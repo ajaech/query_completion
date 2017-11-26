@@ -57,7 +57,7 @@ class Model(object):
         self.user_ids = tf.placeholder(tf.int32, [None])
 
         x = self.queries[:, :-1]
-        y = self.queries[:, 1:]
+        y = self.queries[:, 1:]  # predict y from x
 
         self.char_embeddings = tf.get_variable(
             'char_embeddings', [params.vocab_size, params.char_embed_size])
@@ -67,8 +67,7 @@ class Model(object):
 
         inputs = tf.nn.embedding_lookup(self.char_embeddings, x)
         
-        indicator = tf.sequence_mask(tf.to_int32(self.query_lengths - 1), 
-                                     params.max_len - 1)
+        indicator = tf.sequence_mask(self.query_lengths - 1, params.max_len - 1)
         _mask = tf.where(indicator, tf.ones_like(x, dtype=tf.float32),
                          tf.zeros_like(x, dtype=tf.float32))
         self.dropout_keep_prob = tf.placeholder_with_default(1.0, (), name='keep_prob')
@@ -137,4 +136,4 @@ class Model(object):
         self.next_log_prob = tf.nn.log_softmax(logits / self.temperature)
         self.beam_size = tf.placeholder_with_default(1, (), name='beam_size')
         log_probs, self.selected = tf.nn.top_k(self.next_log_prob, self.beam_size)
-        self.selected_p = -log_probs
+        self.selected_p = -log_probs  # cost is the negative log likelihood

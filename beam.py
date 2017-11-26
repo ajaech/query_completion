@@ -1,5 +1,4 @@
 import collections
-import copy
 import numpy as np
 from Queue import PriorityQueue
 
@@ -116,9 +115,7 @@ def GetCompletions(prefix, user_id, m, branching_factor=8):
       for new_word, top_value in zip(current_char[i, :], current_char_p[i, :]):
         new_cost = top_value + node.log_probs
         if new_nodes.CheckBound(new_cost):
-          words_copy = copy.copy(node.words)
-          words_copy.append(new_word)
-          new_beam = BeamItem(words_copy, prev_c[i, :], prev_h[i, :])
+          new_beam = BeamItem(list(node.words) + [new_word], prev_c[i, :], prev_h[i, :])
           new_beam.log_probs = new_cost
           new_nodes.Insert(new_beam)
     nodes = new_nodes
