@@ -17,20 +17,22 @@ class FactorCell(tf.nn.rnn_cell.RNNCell):
     else:
       lock_ops.append(self.lockedW.assign(self.W))
 
-    if self.mikilov_adapt:
-      final_bias = tf.squeeze(self.delta)
+    if self.mikolov_adapt:
+      final_bias = tf.squeeze(self.bias + self.delta)
       lock_ops.append(self.lockedBias.assign(final_bias))
+    else:
+      lock_ops.append(self.lockedBias.assign(self.bias))
 
     self.lock_op = tf.group(*lock_ops)
 
 
   def __init__(self, num_units, embedding_size, context_embed, 
-               mikilovian_adaptation=False, lowrank_adaptation=False,
+               bias_adaptation=False, lowrank_adaptation=False,
                rank=10, layer_norm=False, dropout_keep_prob=None):
     self._num_units = num_units
     self._forget_bias = 1.0
     self._activation = tf.tanh
-    self.mikilov_adapt = mikilovian_adaptation
+    self.mikolov_adapt = bias_adaptation
     self.lowrank_adaptation = lowrank_adaptation
     self.layer_norm = layer_norm
     self._keep_prob = dropout_keep_prob
@@ -76,7 +78,7 @@ class FactorCell(tf.nn.rnn_cell.RNNCell):
         self.right_adapt = tf.reshape(
           right_adapt_unshaped, [-1, rank, 3 * num_units])
 
-      if self.mikilov_adapt:
+      if self.mikolov_adapt:
         context_embed_size = context_embed.get_shape()[1].value
         self.biases = tf.get_variable(
           'mikolov_biases', [context_embed_size, 3 * self._num_units])
@@ -110,10 +112,13 @@ class FactorCell(tf.nn.rnn_cell.RNNCell):
         intermediate = tf.matmul(input_expanded, self.left_adapt)
         final = tf.matmul(intermediate, self.right_adapt)
         result += tf.squeeze(final)
-      if self.mikilov_adapt and not use_locked:
+      if self.mikolov_adapt and not use_locked:
         result += self.delta
-
-      result += self.bias
+      
+      if use_locked:
+        result += self.lockedBias
+      else:
+        result += self.bias
 
       # j = new_input, f = forget_gate, o = output_gate
       j, f, o = tf.split(axis=1, num_or_size_splits=3, value=result)

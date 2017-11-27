@@ -45,14 +45,13 @@ class DynamicModel(MetaModel):
         self.train_op = optimizer.minimize(self.model.avg_loss,
                                            var_list=[self.model.user_embed_mat])
             
-  def Train(self, query, user):
+  def Train(self, query):
     qIds = np.zeros((1, self.params.max_len))
-        
     for i in range(min(60, len(query))):
       qIds[0, i] = self.char_vocab[query[i]]
         
     feed_dict = {
-      self.model.user_ids: np.array([self.user_vocab[user]]),
+      self.model.user_ids: np.array([0]),
       self.model.query_lengths: np.array([len(query)]),
       self.model.queries: qIds
     }
@@ -68,7 +67,7 @@ mLow = DynamicModel(args.expdir)
 df = LoadData(args.data)
 users = df.groupby('user')
 
-rows = []
+counter = 0
 for user, grp in users:
   grp = grp.sort_values('date')
   mLow.session.run(mLow.reset_user_embed)
@@ -93,19 +92,19 @@ for user, grp in users:
       prefix_len += 1  # always have at least a single character prefix
 
       prefix = row.query_[:prefix_len]
-      b = GetCompletions(prefix, 0, mLow)  # always use userid=0
+      b = GetCompletions(prefix, 0, mLow, branching_factor=4)  # always use userid=0
       qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
       score = GetRankInList(query, qlist)
       result['score'] = score
       result['prefix_len'] = int(prefix_len)
 
-    c, words_in_batch = mLow.Train(row.query_, row.user)
+    c, words_in_batch = mLow.Train(row.query_)
     result['length'] = words_in_batch
     result['cost'] = c
+    print result
+    counter += 1
 
-    rows.append(result)
-    print rows[-1]
     if i % 5 == 0:
       sys.stdout.flush()  # flush every so often
-  if len(rows) > 24000:
+  if counter > 1400:
       break
