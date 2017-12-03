@@ -47,7 +47,7 @@ class DynamicModel(MetaModel):
             
   def Train(self, query):
     qIds = np.zeros((1, self.params.max_len))
-    for i in range(min(60, len(query))):
+    for i in range(min(params.max_len, len(query))):
       qIds[0, i] = self.char_vocab[query[i]]
         
     feed_dict = {
@@ -106,5 +106,5 @@ for user, grp in users:
 
     if i % 5 == 0:
       sys.stdout.flush()  # flush every so often
-  if counter > 1400:
+  if counter > 5400:
       break
