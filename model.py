@@ -37,7 +37,7 @@ class MetaModel(object):
 
   def Restore(self):
     with self.graph.as_default():
-      saver = tf.train.Saver(tf.global_variables())
+      saver = tf.train.Saver(tf.trainable_variables())
       self.session.run(tf.global_variables_initializer())
       saver.restore(self.session, os.path.join(self.expdir, 'model.bin'))
 

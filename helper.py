@@ -1,7 +1,18 @@
 import bunch
+import hashlib
 import json
 import os
 import numpy as np
+
+
+def GetPrefixLen(user, query):
+  # choose a random prefix length
+  hasher = hashlib.md5()
+  hasher.update(user)
+  hasher.update(''.join(query))
+  prefix_len = int(hasher.hexdigest(), 16) % min(len(query), 15)
+  prefix_len += 1  # always have at least a single character prefix
+  return prefix_len
 
 
 def GetParams(filename, mode, expdir):

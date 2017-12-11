@@ -54,13 +54,16 @@ params.user_vocab_size = len(user_vocab)
 dataset = Dataset(df, char_vocab, user_vocab, max_len=params.max_len,
                   batch_size=params.batch_size)
 
+val_df = LoadData(args.valdata)
+valdata = Dataset(val_df, char_vocab, user_vocab, max_len=params.max_len,
+                  batch_size=params.batch_size)
+
 model = Model(params)
 saver = tf.train.Saver(tf.global_variables())
 config = tf.ConfigProto(inter_op_parallelism_threads=args.threads,
                         intra_op_parallelism_threads=args.threads)
 session = tf.Session(config=config)
 session.run(tf.global_variables_initializer())
-#session.run([model.prev_c.initializer, model.prev_h.initializer])
 
 avg_loss = MovingAvg(0.97)  # exponential moving average of the training loss
 for idx in range(params.iters):
@@ -68,7 +71,11 @@ for idx in range(params.iters):
   c, _ = session.run([model.avg_loss, model.train_op], feed_dict)
   cc = avg_loss.Update(c)
   if idx % 50 == 0 and idx > 0:
-    logging.info({'iter': idx, 'cost': cc, 'rawcost': c})
-  if idx % 1000 == 0:
+    # test one batch from the validation set
+    val_c = session.run(model.avg_loss, valdata.GetFeedDict(model))
+
+    logging.info({'iter': idx, 'cost': cc, 'rawcost': c, 
+                  'valcost': val_c})
+  if idx % 2000 == 0:
     saver.save(session, os.path.join(expdir, 'model.bin'),
                write_meta_graph=False)

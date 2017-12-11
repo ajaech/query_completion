@@ -1,11 +1,11 @@
 import argparse
-import hashlib
 import os
 import pandas
 import numpy as np
 import tensorflow as tf
 import sys
 from beam import GetCompletions
+from helper import GetPrefixLen
 from metrics import GetRankInList
 from model import MetaModel
 
@@ -22,26 +22,19 @@ df = pandas.read_csv('/g/ssli/data/LowResourceLM/aol/queries01.dev.txt.gz',
 df.columns = ['user', 'query_', 'date']
 df['user'] = df.user.apply(lambda x: 's' + str(x))
 
-
 m = MetaModel(args.expdir)  # Load the model
 m.MakeSession(args.threads)
 m.Restore()
 
-
-for i in range(9000):
+for i in range(7500):
   row = df.iloc[i]
   query_len = len(row.query_)
 
   if query_len <= 3:
     continue
+  query = ''.join(row.query[1:-1])
 
-  # choose a random prefix length
-  hasher = hashlib.md5()
-  hasher.update(row.user)
-  hasher.update(''.join(row.query_))
-  prefix_len = int(hasher.hexdigest(), 16) % min(query_len - 2, 15)
-  prefix_len += 1  # always have at least a single character prefix
-
+  prefix_len = GetPrefixLen(row.user, query)
   prefix = row.query_[:prefix_len]
   b = GetCompletions(['<S>'] + list(prefix), m.user_vocab[row.user], m,
                      branching_factor=4)

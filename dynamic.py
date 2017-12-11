@@ -1,11 +1,11 @@
 import argparse
-import hashlib
 import os
 import numpy as np
 import tensorflow as tf
 import sys
 from beam import GetCompletions
 from dataset import LoadData, Dataset
+from helper import GetPrefixLen
 from metrics import GetRankInList
 from model import MetaModel
 
@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('expdir', help='experiment directory')
 parser.add_argument('--data', type=str, action='append', dest='data',
                     help='where to load the data')
-parser.add_argument('--learning_rate', type=float, default=0.3)
+parser.add_argument('--learning_rate', type=float, default=None)
 parser.add_argument('--threads', type=int, default=12,
                     help='how many threads to use in tensorflow')
 parser.add_argument('--tuning', action='store_true', dest='tuning',
@@ -27,6 +27,13 @@ class DynamicModel(MetaModel):
     
   def __init__(self, expdir, learning_rate=args.learning_rate):
     super(DynamicModel, self).__init__(expdir)
+
+    learning_rate = args.learning_rate
+    if learning_rate is None:
+      if self.params.use_lowrank_adaptation:
+        learning_rate = 0.35
+      else:
+        learning_rate = 1.1
 
     self.MakeSession(args.threads)
     self.Restore()
@@ -47,7 +54,7 @@ class DynamicModel(MetaModel):
             
   def Train(self, query):
     qIds = np.zeros((1, self.params.max_len))
-    for i in range(min(params.max_len, len(query))):
+    for i in range(min(self.params.max_len, len(query))):
       qIds[0, i] = self.char_vocab[query[i]]
         
     feed_dict = {
@@ -84,18 +91,14 @@ for user, grp in users:
 
     # run the beam search decoding
     if not args.tuning:
-      # choose a random prefix length
-      hasher = hashlib.md5()
-      hasher.update(row.user)
-      hasher.update(''.join(row.query_))
-      prefix_len = int(hasher.hexdigest(), 16) % min(query_len - 2, 15)
-      prefix_len += 1  # always have at least a single character prefix
-
+      prefix_len = GetPrefixLen(row.user, query)
       prefix = row.query_[:prefix_len]
-      b = GetCompletions(prefix, 0, mLow, branching_factor=4)  # always use userid=0
+      b = GetCompletions(prefix, 0, mLow, branching_factor=4,
+                         beam_size=100)  # always use userid=0
       qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
       score = GetRankInList(query, qlist)
       result['score'] = score
+      result['top_completion'] = qlist[0]
       result['prefix_len'] = int(prefix_len)
 
     c, words_in_batch = mLow.Train(row.query_)
@@ -104,7 +107,7 @@ for user, grp in users:
     print result
     counter += 1
 
-    if i % 5 == 0:
+    if i % 15 == 0:
       sys.stdout.flush()  # flush every so often
-  if counter > 5400:
+  if counter > 85540:
       break

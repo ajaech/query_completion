@@ -78,18 +78,18 @@ class BeamQueue(object):
     raise StopIteration
 
 
-def GetCompletions(prefix, user_id, m, branching_factor=8):
+def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300, 
+                   stop='</S>'):
   m.Lock(user_id)  # pre-compute the adaptive recurrent matrix
 
   init_c, init_h = InitBeam(prefix, user_id, m)
   nodes = [BeamItem(prefix, init_c, init_h)]
-  total_beam_size = 300
 
   for i in range(36):
-    new_nodes = BeamQueue(max_size=total_beam_size)
+    new_nodes = BeamQueue(max_size=beam_size)
     current_nodes = []
     for node in nodes:
-      if node.words[-1] == '</S>':  # don't extend past end-of-sentence token
+      if node.words[-1] == stop:  # don't extend past the stop token
         new_nodes.Insert(node)
       else:
         current_nodes.append(node)
