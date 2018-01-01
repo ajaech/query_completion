@@ -1,31 +1,29 @@
-import pandas
 import numpy as np
 import os
-import copy 
+import pandas
 import pygtrie
-import hashlib
 import sys
+from dataset import LoadData
+from helper import GetPrefixLen
 
+import code
 
 query_trie = pygtrie.CharTrie()
 
 dirname = '/g/ssli/data/LowResourceLM/aol'
-filenames = ['queries01.train.txt.gz', 'queries02.train.txt.gz',
-             'queries03.train.txt.gz', 'queries04.train.txt.gz']
-dfs = []
-for filename in filenames:
-    df = pandas.read_csv(os.path.join(dirname, filename), sep='\t', header=None)
-    df.columns = ['user', 'query_', 'date']
-    dfs.append(df)
-df = pandas.concat(dfs)
+filenames = ['queries01.train.txt.gz', #'queries02.train.txt.gz',
+#             'queries03.train.txt.gz', 'queries04.train.txt.gz', 
+#             'queries05.train.txt.gz', 'queries06.train.txt.gz'
+]
+df = LoadData([os.path.join(dirname, f) for f in filenames], split=False)
 z = df.query_.value_counts()
+z = z[z > 100]
 
 for q, count in zip(z.index.values, z):
     query_trie[q] = count
 
-
 cache = {}
-def GetTopK(prefix, k=300):
+def GetTopK(prefix, k=100):
     if prefix in cache:
         return cache[prefix]
     results = query_trie.items(prefix)
@@ -33,10 +31,8 @@ def GetTopK(prefix, k=300):
     cache[prefix] = queries[:k]
     return queries[:k]
 
-df = pandas.read_csv('/g/ssli/data/LowResourceLM/aol/queries01.dev.txt.gz',
-                     sep='\t', header=None)
-df.columns = ['user', 'query_', 'date']
-df['user'] = df.user.apply(lambda x: 's' + str(x))
+df = LoadData(['/g/ssli/data/LowResourceLM/aol/queries01.dev.txt.gz'],
+              split=False)
 
 def GetRankInList(query, qlist):
   if query not in qlist:
@@ -49,14 +45,8 @@ for i in range(9000):
 
   if query_len <= 3:
     continue
-
-  # choose a random prefix length based on md5 hash
-  hasher = hashlib.md5()
-  hasher.update(row.user)
-  hasher.update(row.query_)
-  prefix_len = int(hasher.hexdigest(), 16) % min(query_len - 2, 15)
-  prefix_len += 1  # always have at least a single character prefix
-
+  prefix_len = GetPrefixLen(row.user, row.query_)
+  
   prefix_not_found = False
   prefix = row.query_[:prefix_len]
   if not query_trie.has_subtrie(prefix):

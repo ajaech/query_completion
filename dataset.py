@@ -2,7 +2,7 @@ import pandas
 import numpy as np
 
 
-def LoadData(filenames):
+def LoadData(filenames, split=True):
   def Prepare(s):
     s = str(s)
     return ['<S>'] + list(s) + ['</S>']
@@ -12,7 +12,8 @@ def LoadData(filenames):
     print filename
     df = pandas.read_csv(filename, sep='\t', compression='gzip', header=None)
     df.columns = ['user', 'query_', 'date']
-    df['query_'] = df.query_.apply(Prepare)
+    if split:
+      df['query_'] = df.query_.apply(Prepare)
     df['user'] = df.user.apply(lambda x: 's' + str(x))
     dfs.append(df)
   return pandas.concat(dfs)

@@ -26,15 +26,14 @@ m = MetaModel(args.expdir)  # Load the model
 m.MakeSession(args.threads)
 m.Restore()
 
-for i in range(7500):
+for i in range(13000):
   row = df.iloc[i]
   query_len = len(row.query_)
 
   if query_len <= 3:
     continue
-  query = ''.join(row.query[1:-1])
 
-  prefix_len = GetPrefixLen(row.user, query)
+  prefix_len = GetPrefixLen(row.user, row.query_)
   prefix = row.query_[:prefix_len]
   b = GetCompletions(['<S>'] + list(prefix), m.user_vocab[row.user], m,
                      branching_factor=4)
