@@ -1,3 +1,4 @@
+"""Script for training language models."""
 import argparse
 import logging
 import os
@@ -15,11 +16,10 @@ from vocab import Vocab
 
 parser = argparse.ArgumentParser()
 parser.add_argument('expdir', help='experiment directory')
-parser.add_argument('--params', type=str,
-                    help='json file with hyperparameters',
-                    default='default_params.json')
+parser.add_argument('--params', type=str, default='default_params.json'
+                    help='json file with hyperparameters')
 parser.add_argument('--data', type=str, action='append', dest='data',
-                    help='where to load the data')
+                    help='where to load the data from')
 parser.add_argument('--valdata', type=str, action='append', dest='valdata',
                     help='where to load validation data', default=[])
 parser.add_argument('--threads', type=int, default=12,
@@ -77,6 +77,6 @@ for idx in range(params.iters):
 
     logging.info({'iter': idx, 'cost': cc, 'rawcost': c, 
                   'valcost': val_c})
-  if idx % 2000 == 0:
+  if idx % 2000 == 0:  # save a model file every 2,000 minibatches
     saver.save(session, os.path.join(expdir, 'model.bin'),
                write_meta_graph=False)
