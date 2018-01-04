@@ -10,32 +10,32 @@ from metrics import GetRankInList
 from model import MetaModel
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('expdir', help='experiment directory')
-parser.add_argument('--data', type=str, action='append', dest='data',
-                    help='where to load the data')
-parser.add_argument('--learning_rate', type=float, default=None)
-parser.add_argument('--threads', type=int, default=12,
-                    help='how many threads to use in tensorflow')
-parser.add_argument('--tuning', action='store_true', dest='tuning',
-                    help='when tuning don\'t do beam search decoding',
-                    default=False)
-args = parser.parse_args()
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument('expdir', help='experiment directory')
+  parser.add_argument('--data', type=str, action='append', dest='data',
+                      help='where to load the data')
+  parser.add_argument('--learning_rate', type=float, default=None)
+  parser.add_argument('--threads', type=int, default=12,
+                      help='how many threads to use in tensorflow')
+  parser.add_argument('--tuning', action='store_true', dest='tuning',
+                      help='when tuning don\'t do beam search decoding',
+                      default=False)
+  args = parser.parse_args()
 
 
 class DynamicModel(MetaModel):
     
-  def __init__(self, expdir, learning_rate=args.learning_rate):
+  def __init__(self, expdir, learning_rate=None, threads=8):
     super(DynamicModel, self).__init__(expdir)
 
-    learning_rate = args.learning_rate
     if learning_rate is None:
       if self.params.use_lowrank_adaptation:
         learning_rate = 0.35
       else:
         learning_rate = 1.1
 
-    self.MakeSession(args.threads)
+    self.MakeSession(threads)
     self.Restore()
     with self.graph.as_default():
       unk_embed = self.model.user_embed_mat.eval(
@@ -68,46 +68,48 @@ class DynamicModel(MetaModel):
         feed_dict)
     return c, words_in_batch
 
+if __name__ == '__main__':
 
-mLow = DynamicModel(args.expdir)
+  mLow = DynamicModel(args.expdir, learning_rate=args.learning_rate,
+                      threads=args.threads)
 
-df = LoadData(args.data)
-users = df.groupby('user')
+  df = LoadData(args.data)
+  users = df.groupby('user')
 
-counter = 0
-for user, grp in users:
-  grp = grp.sort_values('date')
-  mLow.session.run(mLow.reset_user_embed)
+  counter = 0
+  for user, grp in users:
+    grp = grp.sort_values('date')
+    mLow.session.run(mLow.reset_user_embed)
 
-  for i in range(len(grp)):
-    row = grp.iloc[i]
-    query_len = len(row.query_)
+    for i in range(len(grp)):
+      row = grp.iloc[i]
+      query_len = len(row.query_)
 
-    if query_len < 4:
-      continue
+      if query_len < 4:
+        continue
 
-    query = ''.join(row.query_[1:-1])
-    result = {'query': query, 'user': row.user, 'idx': i}
+      query = ''.join(row.query_[1:-1])
+      result = {'query': query, 'user': row.user, 'idx': i}
 
-    # run the beam search decoding
-    if not args.tuning:
-      prefix_len = GetPrefixLen(row.user, query)
-      prefix = row.query_[:prefix_len]
-      b = GetCompletions(prefix, 0, mLow, branching_factor=4,
-                         beam_size=100)  # always use userid=0
-      qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
-      score = GetRankInList(query, qlist)
-      result['score'] = score
-      result['top_completion'] = qlist[0]
-      result['prefix_len'] = int(prefix_len)
+      # run the beam search decoding
+      if not args.tuning:
+        prefix_len = GetPrefixLen(row.user, query)
+        prefix = row.query_[:prefix_len]
+        b = GetCompletions(prefix, 0, mLow, branching_factor=4,
+                           beam_size=100)  # always use userid=0
+        qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
+        score = GetRankInList(query, qlist)
+        result['score'] = score
+        result['top_completion'] = qlist[0]
+        result['prefix_len'] = int(prefix_len)
 
-    c, words_in_batch = mLow.Train(row.query_)
-    result['length'] = words_in_batch
-    result['cost'] = c
-    print result
-    counter += 1
+      c, words_in_batch = mLow.Train(row.query_)
+      result['length'] = words_in_batch
+      result['cost'] = c
+      print result
+      counter += 1
 
-    if i % 15 == 0:
-      sys.stdout.flush()  # flush every so often
-  if counter > 85540:
-      break
+      if i % 15 == 0:
+        sys.stdout.flush()  # flush every so often
+    if counter > 185540:
+        break

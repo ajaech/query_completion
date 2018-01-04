@@ -1,15 +1,19 @@
+"""Holds the Dataset class used for managing training and test data."""
 import pandas
 import numpy as np
 
 
 def LoadData(filenames, split=True):
+  """Load a bunch of files as a pandas dataframe.
+
+  Input files should have three columns for userid, query, and date.
+  """
   def Prepare(s):
     s = str(s)
     return ['<S>'] + list(s) + ['</S>']
 
   dfs = []
   for filename in filenames:
-    print filename
     df = pandas.read_csv(filename, sep='\t', compression='gzip', header=None)
     df.columns = ['user', 'query_', 'date']
     if split:

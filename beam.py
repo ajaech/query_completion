@@ -26,8 +26,8 @@ class BeamItem(object):
   the two hidden state vectors.
   """
   
-  def __init__(self, prev_word, prev_c, prev_h):
-    self.log_probs = 0.0
+  def __init__(self, prev_word, prev_c, prev_h, log_prob=0.0):
+    self.log_probs = log_prob
     if type(prev_word) == list:
       self.words = prev_word
     else:
@@ -36,10 +36,7 @@ class BeamItem(object):
     self.prev_h = prev_h
 
   def __str__(self):
-    return 'beam {0:.3f}: '.format(self.Cost()) + ''.join(self.words)
-
-  def Cost(self):
-    return self.log_probs
+    return 'beam {0:.3f}: '.format(self.log_probs) + ''.join(self.words)
 
 
 class BeamQueue(object):
@@ -53,7 +50,7 @@ class BeamQueue(object):
         
   def Insert(self, item):
     self.size += 1
-    self.q.put((-item.Cost(), item))
+    self.q.put((-item.log_probs, item))
     if self.size > self.max_size:
       self.Eject()
             
@@ -114,11 +111,11 @@ def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300,
       feed_dict)
 
     for i, node in enumerate(current_nodes):
+      p_c, p_h = prev_c[i, :], prev_h[i, :]
       for new_word, top_value in zip(current_char[i, :], current_char_p[i, :]):
         new_cost = top_value + node.log_probs
         if new_nodes.CheckBound(new_cost):  # only create a new object if it fits in beam
-          new_beam = BeamItem(list(node.words) + [new_word], prev_c[i, :], prev_h[i, :])
-          new_beam.log_probs = new_cost
+          new_beam = BeamItem(list(node.words) + [new_word], p_c, p_h, log_prob=new_cost)
           new_nodes.Insert(new_beam)
     nodes = new_nodes
   return nodes
