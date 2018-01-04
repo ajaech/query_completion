@@ -1,7 +1,8 @@
 {
     "max_len": 60,
-    "num_units": 256,
-    "char_embed_size": 16,
+    "num_units": 512,
+    "char_embed_size": 24,
+    "dropout": 1.0,
     "user_embed_size": 32,
     "use_layer_norm": true,
     "use_mikolov_adaptation": false,

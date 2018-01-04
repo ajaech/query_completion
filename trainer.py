@@ -68,6 +68,7 @@ session.run(tf.global_variables_initializer())
 avg_loss = MovingAvg(0.97)  # exponential moving average of the training loss
 for idx in range(params.iters):
   feed_dict = dataset.GetFeedDict(model)
+  feed_dict[model.dropout_keep_prob] = params.dropout
   c, _ = session.run([model.avg_loss, model.train_op], feed_dict)
   cc = avg_loss.Update(c)
   if idx % 50 == 0 and idx > 0:
