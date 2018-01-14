@@ -31,27 +31,31 @@ class DynamicModel(MetaModel):
 
     if learning_rate is None:
       if self.params.use_lowrank_adaptation:
-        learning_rate = 0.35
+        learning_rate = 0.22
       else:
-        learning_rate = 1.1
+        learning_rate = 1.0
 
     self.MakeSession(threads)
     self.Restore()
     with self.graph.as_default():
       unk_embed = self.model.user_embed_mat.eval(
         session=self.session)[self.user_vocab['<UNK>']]
-      self.reset_user_embed = tf.assign(
-          self.model.user_embed_mat, np.expand_dims(unk_embed, 0),
-          validate_shape=False)
+      self.reset_user_embed = tf.scatter_update(
+          self.model.user_embed_mat, [0], np.expand_dims(unk_embed, 0))
       self.session.run(self.reset_user_embed)
 
-      self.train_op = tf.no_op()            
-      if (self.params.use_lowrank_adaptation or 
-          self.params.use_mikolov_adaptation):
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-        self.train_op = optimizer.minimize(self.model.avg_loss,
-                                           var_list=[self.model.user_embed_mat])
-            
+      with tf.variable_scope('optimizer'):
+        self.train_op = tf.no_op()            
+        if (self.params.use_lowrank_adaptation or 
+            self.params.use_mikolov_adaptation):
+          optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+          self.train_op = optimizer.minimize(self.model.avg_loss,
+                                             var_list=[self.model.user_embed_mat])
+      opt_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, "optimizer")
+      if len(opt_vars):
+        self.reset_user_embed = tf.group(self.reset_user_embed,
+                                         tf.variables_initializer(opt_vars))
+
   def Train(self, query):
     qIds = np.zeros((1, self.params.max_len))
     for i in range(min(self.params.max_len, len(query))):
