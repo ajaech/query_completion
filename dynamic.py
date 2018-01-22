@@ -2,11 +2,12 @@ import argparse
 import os
 import numpy as np
 import tensorflow as tf
+import time
 import sys
 from beam import GetCompletions
 from dataset import LoadData, Dataset
 from helper import GetPrefixLen
-from metrics import GetRankInList
+from metrics import GetRankInList, MovingAvg
 from model import MetaModel
 
 
@@ -79,6 +80,7 @@ if __name__ == '__main__':
 
   df = LoadData(args.data)
   users = df.groupby('user')
+  avg_time = MovingAvg(0.95)
 
   counter = 0
   for user, grp in users:
@@ -92,6 +94,7 @@ if __name__ == '__main__':
       if query_len < 4:
         continue
 
+      start_time = time.time()
       query = ''.join(row.query_[1:-1])
       result = {'query': query, 'user': row.user, 'idx': i}
 
@@ -112,8 +115,10 @@ if __name__ == '__main__':
       result['cost'] = c
       print result
       counter += 1
+      t = avg_time.Update(time.time() - start_time)
+      sys.stderr.write('{0}'.format(t))
 
       if i % 15 == 0:
         sys.stdout.flush()  # flush every so often
-    if counter > 185540:
+    if counter > 385540:
         break

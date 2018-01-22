@@ -4,19 +4,16 @@ from Queue import PriorityQueue
 
 def InitBeam(phrase, user_id, m):
   # Need to find the hidden state for the last char in the prefix.
-  prev_c = np.zeros((1, m.params.num_units))
-  prev_h = np.zeros((1, m.params.num_units))
+  prev_hidden = np.zeros((1, 2 * m.params.num_units))
   for word in phrase[:-1]:
     feed_dict = {
-       m.model.prev_c: prev_c, 
-       m.model.prev_h: prev_h,
+       m.model.prev_hidden_state: prev_hidden,
        m.model.prev_word: [m.char_vocab[word]],
        m.model.beam_size: 4
     }
-    prev_c, prev_h = m.session.run(
-      [m.model.next_c, m.model.next_h], feed_dict)
+    prev_hidden = m.session.run(m.model.next_hidden_state, feed_dict)
 
-  return prev_c, prev_h
+  return prev_hidden
 
 
 class BeamItem(object):
@@ -26,14 +23,13 @@ class BeamItem(object):
   the two hidden state vectors.
   """
   
-  def __init__(self, prev_word, prev_c, prev_h, log_prob=0.0):
+  def __init__(self, prev_word, prev_hidden, log_prob=0.0):
     self.log_probs = log_prob
     if type(prev_word) == list:
       self.words = prev_word
     else:
       self.words = [prev_word]
-    self.prev_c = prev_c
-    self.prev_h = prev_h
+    self.prev_hidden = prev_hidden
 
   def __str__(self):
     return 'beam {0:.3f}: '.format(self.log_probs) + ''.join(self.words)
@@ -80,8 +76,8 @@ def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300,
   """ Find top completions for a given prefix, user and model."""
   m.Lock(user_id)  # pre-compute the adaptive recurrent matrix
 
-  init_c, init_h = InitBeam(prefix, user_id, m)
-  nodes = [BeamItem(prefix, init_c, init_h)]
+  prev_state = InitBeam(prefix, user_id, m)
+  nodes = [BeamItem(prefix, prev_state)]
 
   for i in range(36):
     new_nodes = BeamQueue(max_size=beam_size)
@@ -95,27 +91,25 @@ def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300,
       return new_nodes  # all beams have finished
     
     # group together all the nodes in the queue for efficient computation
-    prev_c = np.vstack([item.prev_c for item in current_nodes])
-    prev_h = np.vstack([item.prev_h for item in current_nodes])
+    prev_hidden = np.vstack([item.prev_hidden for item in current_nodes])
     prev_words = np.array([m.char_vocab[item.words[-1]] for item in current_nodes])
 
     feed_dict = {
       m.model.prev_word: prev_words,
-      m.model.prev_c: prev_c,
-      m.model.prev_h: prev_h,
+      m.model.prev_hidden_state: prev_hidden,
       m.model.beam_size: branching_factor
     }
 
-    current_char, current_char_p, prev_c, prev_h = m.session.run(
-      [m.beam_chars, m.model.selected_p, m.model.next_c, m.model.next_h],
+    current_char, current_char_p, prev_hidden = m.session.run(
+      [m.beam_chars, m.model.selected_p, m.model.next_hidden_state],
       feed_dict)
 
     for i, node in enumerate(current_nodes):
-      p_c, p_h = prev_c[i, :], prev_h[i, :]
       for new_word, top_value in zip(current_char[i, :], current_char_p[i, :]):
         new_cost = top_value + node.log_probs
         if new_nodes.CheckBound(new_cost):  # only create a new object if it fits in beam
-          new_beam = BeamItem(list(node.words) + [new_word], p_c, p_h, log_prob=new_cost)
+          new_beam = BeamItem(list(node.words) + [new_word], prev_hidden[i, :],
+                              log_prob=new_cost)
           new_nodes.Insert(new_beam)
     nodes = new_nodes
   return nodes

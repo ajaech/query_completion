@@ -4,6 +4,7 @@ from factorcell import FactorCell
 from vocab import Vocab
 import helper
 
+import code
 
 class MetaModel(object):
   """Helper class for loading models."""
@@ -114,17 +115,18 @@ class Model(object):
 
   def BuildDecoderGraph(self):
     self.prev_word = tf.placeholder(tf.int32, [None], name='prev_word')
-    self.prev_c = tf.placeholder(tf.float32, [None, self.params.num_units], 
-                                 name='prev_c')
-    self.prev_h = tf.placeholder(tf.float32, [None, self.params.num_units], 
-                                 name='prev_h')
+    self.prev_hidden_state = tf.placeholder(
+      tf.float32, [None, 2 * self.params.num_units], name='prev_hidden_state')
+    prev_c = self.prev_hidden_state[:, :self.params.num_units]
+    prev_h = self.prev_hidden_state[:, self.params.num_units:]
     self.temperature = tf.placeholder_with_default([1.0], [1])
 
     prev_embed = tf.nn.embedding_lookup(self.char_embeddings, self.prev_word)
 
-    state = tf.nn.rnn_cell.LSTMStateTuple(self.prev_c, self.prev_h)
-    result, (self.next_c, self.next_h) = self.decoder_cell(prev_embed, state,
+    state = tf.nn.rnn_cell.LSTMStateTuple(prev_c, prev_h)
+    result, (next_c, next_h) = self.decoder_cell(prev_embed, state,
                                                            use_locked=True)
+    self.next_hidden_state = tf.concat([next_c, next_h], 1)
 
     with tf.variable_scope('rnn', reuse=True):
       proj_result = tf.layers.dense(result, self.params.char_embed_size,
