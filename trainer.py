@@ -16,7 +16,7 @@ from vocab import Vocab
 
 parser = argparse.ArgumentParser()
 parser.add_argument('expdir', help='experiment directory')
-parser.add_argument('--params', type=str, default='default_params.json'
+parser.add_argument('--params', type=str, default='default_params.json',
                     help='json file with hyperparameters')
 parser.add_argument('--data', type=str, action='append', dest='data',
                     help='where to load the data from')

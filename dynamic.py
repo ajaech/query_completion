@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
       # run the beam search decoding
       if not args.tuning:
-        prefix_len = GetPrefixLen(row.user, query)
+        prefix_len = GetPrefixLen(row.user, query, i)
         prefix = row.query_[:prefix_len]
         b = GetCompletions(prefix, 0, mLow, branching_factor=4,
                            beam_size=100)  # always use userid=0

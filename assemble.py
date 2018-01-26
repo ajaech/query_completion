@@ -3,11 +3,30 @@ import json
 import numpy as np
 import os
 import pandas
+import re
 import code
+
+regex_eval = re.compile(r"'(\w*)': '?([^,]+)'?[,}]")
+
+def FastLoadDynamic(filename):
+    rows = []
+    with open(filename, 'r') as f:
+        for line in f:
+            matches = regex_eval.finditer(line)
+            d = dict([m.groups() for m in matches])
+            if len(d) > 0:
+                rows.append(d)
+        dynamic_df = pandas.DataFrame(rows)
+        if len(dynamic_df) > 0:
+            dynamic_df['cost'] = dynamic_df.cost.astype(float)
+            dynamic_df['length'] = dynamic_df['length'].astype(float)
+            if 'score' in dynamic_df.columns:
+              dynamic_df['score'] = dynamic_df['score'].astype(float)
+    return dynamic_df
 
 results = []
 
-for dirname in glob.glob('/s0/ajaech/aolexps/*'):
+for dirname in glob.glob('/s0/ajaech/aolexps/d*'):
   if os.path.isfile(dirname):
     continue
 
@@ -44,8 +63,21 @@ for dirname in glob.glob('/s0/ajaech/aolexps/*'):
   params['ppl'] = ppl
   ppl = GetPPL('pplfinal.txt')
   params['pplfinal'] = ppl
-  rank = GetPPL('rank.txt')
+  rank = GetPPL('rank2.txt')
   params['qrank'] = rank
+  
+  filename = os.path.join(dirname, 'dynamic.txt')
+  if os.path.exists(filename):
+    dyn = FastLoadDynamic(filename)
+    if len(dyn) > 0:
+      if 'score' in dyn.columns:
+        z = np.array(dyn.score.values)
+        z[z < 0.1] = 0.0  # crop it at ten
+        params['test_mrr'] = 1.0 / max(0.00001, np.mean(dyn.score))
+      test_ppl = np.exp((dyn.cost * dyn.length).sum() / dyn.length.sum())
+      params['test_ppl'] = test_ppl
+
+
   results.append(params)
 
 
@@ -62,4 +94,4 @@ for column in df.columns:
   if len(df[column].unique()) == 1:
     del df[column]
 
-df.to_csv('results.csv', index=False, sep='\t')
+df.sort_values('test_mrr').to_csv('results.csv', index=False, sep='\t')

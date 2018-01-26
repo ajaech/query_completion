@@ -26,7 +26,7 @@ m = MetaModel(args.expdir)  # Load the model
 m.MakeSession(args.threads)
 m.Restore()
 
-for i in range(13000):
+for i in range(23000):
   row = df.iloc[i]
   query_len = len(row.query_)
 
