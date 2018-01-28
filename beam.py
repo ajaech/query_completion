@@ -141,6 +141,5 @@ def GetSavedKeystrokes(m, query, branching_factor=4, beam_size=100):
     if top_completion == query:
       right = midpoint - 1
     else:
-      left = max(midpoint + 1, 
-                 FirstNonMatch(query, top_completion, start=midpoint))
+      left = midpoint + 1
   return left
