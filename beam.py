@@ -113,3 +113,34 @@ def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300,
           new_nodes.Insert(new_beam)
     nodes = new_nodes
   return nodes
+
+
+def FirstNonMatch(s1, s2, start=0):
+  # returns the position of the first non-matching character
+  min_len = min(len(s1), len(s2))
+  for i in xrange(start, min_len):
+    if s1[i] != s2[i]:
+      return i
+  return min_len
+
+    
+def GetSavedKeystrokes(m, query, branching_factor=4, beam_size=100):
+  """Find the shortest prefix that gets the right completion.
+
+  Uses binary search.
+  """
+  left = 1
+  right = len(query)
+  while left <= right:
+    midpoint = (left + right) / 2
+    prefix = ['<S>'] + list(query[:midpoint])
+    completions = GetCompletions(
+      prefix, 0, m, branching_factor=branching_factor, beam_size=beam_size)
+    top_completion = list(completions)[-1]
+    top_completion = ''.join(top_completion.words[1:-1])
+    if top_completion == query:
+      right = midpoint - 1
+    else:
+      left = max(midpoint + 1, 
+                 FirstNonMatch(query, top_completion, start=midpoint))
+  return left
