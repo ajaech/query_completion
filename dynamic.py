@@ -16,18 +16,24 @@ if __name__ == '__main__':
   parser.add_argument('expdir', help='experiment directory')
   parser.add_argument('--data', type=str, action='append', dest='data',
                       help='where to load the data')
+  parser.add_argument('--optimizer', default='sgd', 
+                       choices=['sgd', 'adam', 'ada'],
+                       help='which optimizer to use to learn user embeddings')
   parser.add_argument('--learning_rate', type=float, default=None)
   parser.add_argument('--threads', type=int, default=12,
                       help='how many threads to use in tensorflow')
   parser.add_argument('--tuning', action='store_true', dest='tuning',
                       help='when tuning don\'t do beam search decoding',
                       default=False)
+  parser.add_argument('--limit', type=int, default=385540, 
+                       help='how many queries to evaluate')
   args = parser.parse_args()
 
 
 class DynamicModel(MetaModel):
     
-  def __init__(self, expdir, learning_rate=None, threads=8):
+  def __init__(self, expdir, learning_rate=None, threads=8,
+               optimizer=tf.train.GradientDescentOptimizer):
     super(DynamicModel, self).__init__(expdir)
 
     if learning_rate is None:
@@ -49,9 +55,8 @@ class DynamicModel(MetaModel):
         self.train_op = tf.no_op()            
         if (self.params.use_lowrank_adaptation or 
             self.params.use_mikolov_adaptation):
-          optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-          self.train_op = optimizer.minimize(self.model.avg_loss,
-                                             var_list=[self.model.user_embed_mat])
+          self.train_op = optimizer(learning_rate).minimize(
+            self.model.avg_loss, var_list=[self.model.user_embed_mat])
       opt_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, "optimizer")
       if len(opt_vars):
         self.reset_user_embed = tf.group(self.reset_user_embed,
@@ -74,9 +79,12 @@ class DynamicModel(MetaModel):
     return c, words_in_batch
 
 if __name__ == '__main__':
+  optimizer = {'sgd': tf.train.GradientDescentOptimizer,
+               'adam': tf.train.AdamOptimizer,
+               'ada': tf.train.AdagradOptimizer}[args.optimizer]
 
   mLow = DynamicModel(args.expdir, learning_rate=args.learning_rate,
-                      threads=args.threads)
+                      threads=args.threads, optimizer=optimizer)
 
   df = LoadData(args.data)
   users = df.groupby('user')
@@ -116,9 +124,9 @@ if __name__ == '__main__':
       print result
       counter += 1
       t = avg_time.Update(time.time() - start_time)
-      sys.stderr.write('{0}'.format(t))
 
-      if i % 15 == 0:
+      if i % 25 == 0:
         sys.stdout.flush()  # flush every so often
-    if counter > 385540:
+        sys.stderr.write('{0}\n'.format(t))
+    if counter > args.limit:
         break
