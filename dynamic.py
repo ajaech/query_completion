@@ -16,8 +16,8 @@ if __name__ == '__main__':
   parser.add_argument('expdir', help='experiment directory')
   parser.add_argument('--data', type=str, action='append', dest='data',
                       help='where to load the data')
-  parser.add_argument('--optimizer', default='sgd', 
-                       choices=['sgd', 'adam', 'ada'],
+  parser.add_argument('--optimizer', default='ada', 
+                       choices=['sgd', 'adam', 'ada', 'adadelta'],
                        help='which optimizer to use to learn user embeddings')
   parser.add_argument('--learning_rate', type=float, default=None)
   parser.add_argument('--threads', type=int, default=12,
@@ -38,7 +38,7 @@ class DynamicModel(MetaModel):
 
     if learning_rate is None:
       if self.params.use_lowrank_adaptation:
-        learning_rate = 0.22
+        learning_rate = 0.15
       else:
         learning_rate = 1.0
 
@@ -81,7 +81,8 @@ class DynamicModel(MetaModel):
 if __name__ == '__main__':
   optimizer = {'sgd': tf.train.GradientDescentOptimizer,
                'adam': tf.train.AdamOptimizer,
-               'ada': tf.train.AdagradOptimizer}[args.optimizer]
+               'ada': tf.train.AdagradOptimizer,
+               'adadelta': tf.train.AdadeltaOptimizer}[args.optimizer]
 
   mLow = DynamicModel(args.expdir, learning_rate=args.learning_rate,
                       threads=args.threads, optimizer=optimizer)
