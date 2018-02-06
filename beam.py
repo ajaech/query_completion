@@ -108,7 +108,7 @@ def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300,
       for new_word, top_value in zip(current_char[i, :], current_char_p[i, :]):
         new_cost = top_value + node.log_probs
         if new_nodes.CheckBound(new_cost):  # only create a new object if it fits in beam
-          new_beam = BeamItem(list(node.words) + [new_word], prev_hidden[i, :],
+          new_beam = BeamItem(node.words + [new_word], prev_hidden[i, :],
                               log_prob=new_cost)
           new_nodes.Insert(new_beam)
     nodes = new_nodes

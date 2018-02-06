@@ -46,13 +46,13 @@ class MetaModel(object):
 class Model(object):
   """Defines the Tensorflow graph for training and testing a model."""
 
-  def __init__(self, params, training_mode=True):
+  def __init__(self, params, training_mode=True, optimizer=tf.train.AdamOptimizer):
     self.params = params
-    self.BuildGraph(params, training_mode=training_mode)
+    self.BuildGraph(params, training_mode=training_mode, optimizer=optimizer)
     if not training_mode:
       self.BuildDecoderGraph()
 
-  def BuildGraph(self, params, training_mode=True):
+  def BuildGraph(self, params, training_mode=True, optimizer=tf.train.AdamOptimizer):
     self.queries = tf.placeholder(tf.int32, [None, params.max_len], name='queries')
     self.query_lengths = tf.placeholder(tf.int32, [None], name='query_lengths')
     self.user_ids = tf.placeholder(tf.int32, [None], name='user_ids')
@@ -110,8 +110,7 @@ class Model(object):
     self.avg_loss = total_loss / self.words_in_batch
 
     if training_mode:
-      optimizer = tf.train.AdamOptimizer(0.001)
-      self.train_op = optimizer.minimize(self.avg_loss)
+      self.train_op = optimizer(0.001).minimize(self.avg_loss)
 
   def BuildDecoderGraph(self):
     self.prev_word = tf.placeholder(tf.int32, [None], name='prev_word')
