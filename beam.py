@@ -83,7 +83,7 @@ def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300,
     new_nodes = BeamQueue(max_size=beam_size)
     current_nodes = []
     for node in nodes:
-      if node.words[-1] == stop:  # don't extend past the stop token
+      if i > 0 and node.words[-1] == stop:  # don't extend past the stop token
         new_nodes.Insert(node)  # copy over finished beams
       else:
         current_nodes.append(node)  # these ones will get extended

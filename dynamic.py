@@ -25,6 +25,8 @@ if __name__ == '__main__':
   parser.add_argument('--tuning', action='store_true', dest='tuning',
                       help='when tuning don\'t do beam search decoding',
                       default=False)
+  parser.add_argument('--partial', action='store_true', dest='partial',
+                      help='do partial matching rank', default=False)
   parser.add_argument('--limit', type=int, default=385540, 
                        help='how many queries to evaluate')
   args = parser.parse_args()
@@ -91,6 +93,10 @@ if __name__ == '__main__':
   users = df.groupby('user')
   avg_time = MovingAvg(0.95)
 
+  stop = '</S>'
+  if args.partial:
+    stop = ' '
+
   counter = 0
   for user, grp in users:
     grp = grp.sort_values('date')
@@ -98,22 +104,25 @@ if __name__ == '__main__':
 
     for i in range(len(grp)):
       row = grp.iloc[i]
-      query_len = len(row.query_)
-
-      if query_len < 4:
+      query = ''.join(row.query_[1:-1])
+      if len(query) < 3:
         continue
 
       start_time = time.time()
-      query = ''.join(row.query_[1:-1])
       result = {'query': query, 'user': row.user, 'idx': i}
 
       # run the beam search decoding
       if not args.tuning:
         prefix_len = GetPrefixLen(row.user, query, i)
-        prefix = row.query_[:prefix_len]
+        prefix = row.query_[:prefix_len + 1]
+        
         b = GetCompletions(prefix, 0, mLow, branching_factor=4,
-                           beam_size=100)  # always use userid=0
+                           beam_size=100, stop=stop)  # always use userid=0
         qlist = [''.join(q.words[1:-1]) for q in reversed(list(b))]
+
+        if args.partial and ' ' in query[prefix_len:]:
+          word_boundary = query[prefix_len:].index(' ')
+          query = query[:word_boundary + prefix_len]
         score = GetRankInList(query, qlist)
         result['score'] = score
         result['top_completion'] = qlist[0]

@@ -12,7 +12,7 @@ def GetPrefixLen(user, query, n=None):
   hasher.update(''.join(query))
   if n:
     hasher.update(str(n))
-  prefix_len = int(hasher.hexdigest(), 16) % min(len(query), 15)
+  prefix_len = int(hasher.hexdigest(), 16) % (len(query) - 1)
   prefix_len += 1  # always have at least a single character prefix
   return prefix_len
 
