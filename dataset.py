@@ -37,6 +37,9 @@ class Dataset(object):
         self.df = df.sample(frac=1)
         self.batch_size = batch_size
         self.current_idx = 0
+
+        self.df['lengths'] = self.df.query_.apply(
+          lambda x: min(self.max_len, len(x)))
         
     def GetFeedDict(self, model):
         if self.current_idx + self.batch_size > len(self.df):
@@ -48,26 +51,18 @@ class Dataset(object):
         grp = self.df.iloc[idx]
         
         f1 = np.zeros((self.batch_size, self.max_len))
-        len_1 = np.zeros(self.batch_size)
         user_ids = np.zeros(self.batch_size)
-        day_of_week = np.zeros(self.batch_size)
-        hour_of_day = np.zeros(self.batch_size)
         feed_dict = {
           model.queries: f1,
-          model.query_lengths: len_1,
+          model.query_lengths: grp.lengths.values,
           model.user_ids: user_ids,
-          model.dayofweek: day_of_week,
-          model.hourofday: hour_of_day
+          model.dayofweek: grp.dayofweek.values,
+          model.hourofday: grp.hourofday.values
         }
         for i in xrange(len(grp)):
-            row = grp.iloc[i]
-              
-            day_of_week[i] = row.dayofweek
-            hour_of_day[i] = row.hourofday
-
-            len_1[i] = min(self.max_len, len(row.query_))
+            row = grp.iloc[i]              
             user_ids[i] = self.user_vocab[row.user]
-            for j in range(int(len_1[i])):
+            for j in range(row.lengths):
                 f1[i, j] = self.char_vocab[row.query_[j]]
                 
         return feed_dict
