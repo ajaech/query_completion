@@ -14,6 +14,7 @@ def GetRandomSetting(force_case=None):
     'rank': 60, # random.randint(25, 50),
     'batch_size': 64,
     'dropout': 1.0, # random.choice([0.9, 0.92, 0.94, 0.96, 0.98, 1.0])
+    'use_time_features': True,
   }
 
   if force_case is not None:
@@ -33,7 +34,7 @@ def GetRandomSetting(force_case=None):
   return params
 
 
-threads = 32
+threads = 8
 data = """--data /g/ssli/data/LowResourceLM/aol/queries01.train.txt.gz
           --data /g/ssli/data/LowResourceLM/aol/queries02.train.txt.gz 
           --data /g/ssli/data/LowResourceLM/aol/queries03.train.txt.gz
@@ -50,12 +51,12 @@ valdata = """
  --valdata /g/ssli/data/LowResourceLM/aol/queries06.dev.txt.gz""".replace('\n', ' ')
 
 
-for i in range(22, 26):
+for i in range(30, 32):
   force = ('mikolov', 'lowrank')[i % 2]
   d = GetRandomSetting(force_case=force)
   fname = os.path.join('settings', '{0}.json'.format(i))
   with open(fname, 'w') as f:
     json.dump(d, f)
 
-    cmd = 'python trainer.py /n/falcon/s0/ajaech/aolexps/d{0} --params settings/{0}.json --threads {1} {2} {3} 2> /n/falcon/s0/ajaech/aolexps/error.d{0}.log'.format(i, threads, data, valdata)
+    cmd = 'python trainer.py /n/falcon/s0/ajaech/aolexps/t{0} --threads {1} {2} {3} 2> /n/falcon/s0/ajaech/aolexps/error.t{0}.log'.format(i, threads, data, valdata)
   print cmd

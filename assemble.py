@@ -26,7 +26,7 @@ def FastLoadDynamic(filename):
 
 results = []
 
-for dirname in glob.glob('/s0/ajaech/aolexps/d*'):
+for dirname in glob.glob('/s0/ajaech/aolexps/c*'):
   if os.path.isfile(dirname):
     continue
 
@@ -58,6 +58,7 @@ for dirname in glob.glob('/s0/ajaech/aolexps/d*'):
             return None
     return None
 
+
   ppl = GetPPL('ppl.txt')
   print ppl, dirname
   params['ppl'] = ppl
@@ -65,6 +66,7 @@ for dirname in glob.glob('/s0/ajaech/aolexps/d*'):
   params['pplfinal'] = ppl
   rank = GetPPL('rank2.txt')
   params['qrank'] = rank
+  print rank
   
   filename = os.path.join(dirname, 'dynamic.txt')
   if os.path.exists(filename):
@@ -94,4 +96,4 @@ for column in df.columns:
   if len(df[column].unique()) == 1:
     del df[column]
 
-df.sort_values('test_mrr').to_csv('results.csv', index=False, sep='\t')
+df.sort_values('qrank').to_csv('results.csv', index=False, sep='\t')

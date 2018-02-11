@@ -40,9 +40,9 @@ class DynamicModel(MetaModel):
 
     if learning_rate is None:
       if self.params.use_lowrank_adaptation:
-        learning_rate = 0.15
+        learning_rate = 0.23
       else:
-        learning_rate = 1.0
+        learning_rate = 0.925
 
     self.MakeSession(threads)
     self.Restore()

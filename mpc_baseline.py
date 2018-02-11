@@ -32,8 +32,8 @@ def GetTopK(prefix, k=100):
     return queries[:k]
 
 test_data = ['queries01.dev.txt.gz']
-test_data = ['queries08.train.txt.gz', 'queries08.dev.txt.gz', 
-             'queries08.test.txt.gz']
+#test_data = ['queries08.train.txt.gz', 'queries08.dev.txt.gz', 
+#             'queries08.test.txt.gz']
 df = LoadData([os.path.join(dirname, f) for f in test_data],
               split=False)
 users = df.groupby('user')
@@ -67,14 +67,15 @@ def FastLoadDynamic(filename):
             dynamic_df['score'] = dynamic_df['score'].astype(float)
         return dynamic_df
 
-rank_data = FastLoadDynamic('exps/c21/dynamic.txt')
+rank_data = FastLoadDynamic('/n/falcon/s0/ajaech/aolexps/g26/9dynamic.txt')
 
 for i in range(len(rank_data)):
     row = rank_data.iloc[i]
     query = row['query'][:-1].decode('string_escape')
     query_len = len(query)
 
-    prefix_len = GetPrefixLen(row.user, query)
+    # offset by one because of missing <S> token
+    prefix_len = int(row.prefix_len) - 1
 
     prefix_not_found = False
     prefix = query[:prefix_len]

@@ -73,11 +73,22 @@ class Model(object):
                      tf.zeros_like(x, dtype=tf.float32))
     self.dropout_keep_prob = tf.placeholder_with_default(1.0, (), name='keep_prob')
 
-    self.user_embeddings = tf.nn.embedding_lookup(self.user_embed_mat, self.user_ids)
+    user_embeddings = tf.nn.embedding_lookup(self.user_embed_mat, self.user_ids)
+
+    if hasattr(params, 'use_time_features') and params.use_time_features:
+      self.dayofweek = tf.placeholder(tf.int32, [None], name='dayofweek')
+      self.hourofday = tf.placeholder(tf.int32, [None], name='hourofday')
+      self.day_embed_mat = tf.get_variable('day_embed_mat', [7, 2])
+      self.hour_embed_mat = tf.get_variable('hour_embed_mat', [24, 3])
+
+      hour_embeds = tf.nn.embedding_lookup(self.hour_embed_mat, self.hourofday)
+      day_embeds = tf.nn.embedding_lookup(self.day_embed_mat, self.dayofweek)
+      
+      user_embeddings = tf.concat(axis=1, values=[user_embeddings, hour_embeds, day_embeds])
 
     with tf.variable_scope('rnn'):
       self.decoder_cell = FactorCell(params.num_units, params.char_embed_size,
-                                     self.user_embeddings,
+                                     user_embeddings,
                                      bias_adaptation=params.use_mikolov_adaptation,
                                      lowrank_adaptation=params.use_lowrank_adaptation,
                                      rank=params.rank,

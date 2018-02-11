@@ -1,4 +1,5 @@
 """Holds the Dataset class used for managing training and test data."""
+import datetime
 import pandas
 import numpy as np
 
@@ -19,6 +20,10 @@ def LoadData(filenames, split=True):
     if split:
       df['query_'] = df.query_.apply(Prepare)
     df['user'] = df.user.apply(lambda x: 's' + str(x))
+
+    dates = df.date.apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
+    df['hourofday'] = [d.hour for d in dates]
+    df['dayofweek'] = [d.dayofweek for d in dates]
     dfs.append(df)
   return pandas.concat(dfs)
 
@@ -42,19 +47,27 @@ class Dataset(object):
         
         grp = self.df.iloc[idx]
         
-        feeddict = {}
         f1 = np.zeros((self.batch_size, self.max_len))
         len_1 = np.zeros(self.batch_size)
         user_ids = np.zeros(self.batch_size)
+        day_of_week = np.zeros(self.batch_size)
+        hour_of_day = np.zeros(self.batch_size)
+        feed_dict = {
+          model.queries: f1,
+          model.query_lengths: len_1,
+          model.user_ids: user_ids,
+          model.dayofweek: day_of_week,
+          model.hourofday: hour_of_day
+        }
         for i in xrange(len(grp)):
             row = grp.iloc[i]
+              
+            day_of_week[i] = row.dayofweek
+            hour_of_day[i] = row.hourofday
+
             len_1[i] = min(self.max_len, len(row.query_))
             user_ids[i] = self.user_vocab[row.user]
             for j in range(int(len_1[i])):
                 f1[i, j] = self.char_vocab[row.query_[j]]
                 
-        return {
-            model.queries: f1,
-            model.query_lengths: len_1,
-            model.user_ids: user_ids
-        }
+        return feed_dict
