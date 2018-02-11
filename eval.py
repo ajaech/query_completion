@@ -18,8 +18,7 @@ expdir = args.expdir
 
 metamodel = MetaModel(expdir)
 model = metamodel.model
-metamodel.MakeSession(args.threads)
-metamodel.Restore()
+metamodel.MakeSessionAndRestore(args.threads)
 
 df = LoadData(args.data)
 dataset = Dataset(df, metamodel.char_vocab, metamodel.user_vocab, 

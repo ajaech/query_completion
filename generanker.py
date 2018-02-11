@@ -1,7 +1,5 @@
 import argparse
-import os
 import pandas
-import numpy as np
 import tensorflow as tf
 import sys
 from beam import GetCompletions
@@ -23,8 +21,7 @@ df.columns = ['user', 'query_', 'date']
 df['user'] = df.user.apply(lambda x: 's' + str(x))
 
 m = MetaModel(args.expdir)  # Load the model
-m.MakeSession(args.threads)
-m.Restore()
+m.MakeSessionAndRestore(args.threads)
 
 for i in range(23000):
   row = df.iloc[i]

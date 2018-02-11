@@ -1,5 +1,4 @@
 import argparse
-import os
 import numpy as np
 import tensorflow as tf
 import time
@@ -38,15 +37,14 @@ class DynamicModel(MetaModel):
                optimizer=tf.train.GradientDescentOptimizer):
     super(DynamicModel, self).__init__(expdir)
 
-    if learning_rate is None:
+    if learning_rate is None:  # set the default learning rates
       if self.params.use_lowrank_adaptation:
         learning_rate = 0.23
       else:
         learning_rate = 0.925
 
-    self.MakeSession(threads)
-    self.Restore()
-    with self.graph.as_default():
+    self.MakeSessionAndRestore(threads)
+    with self.graph.as_default():  # add some nodes to the tensorflow graph
       unk_embed = self.model.user_embed_mat.eval(
         session=self.session)[self.user_vocab['<UNK>']]
       self.reset_user_embed = tf.scatter_update(
@@ -60,11 +58,12 @@ class DynamicModel(MetaModel):
           self.train_op = optimizer(learning_rate).minimize(
             self.model.avg_loss, var_list=[self.model.user_embed_mat])
       opt_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, "optimizer")
-      if len(opt_vars):
+      if len(opt_vars):  # check if optimzer state needs resetting
         self.reset_user_embed = tf.group(self.reset_user_embed,
                                          tf.variables_initializer(opt_vars))
 
-  def Train(self, query):
+  def Train(self, query, train=True):
+    # If train is false then it will just do the forward pass
     qIds = np.zeros((1, self.params.max_len))
     for i in range(min(self.params.max_len, len(query))):
       qIds[0, i] = self.char_vocab[query[i]]
@@ -74,11 +73,16 @@ class DynamicModel(MetaModel):
       self.model.query_lengths: np.array([len(query)]),
       self.model.queries: qIds
     }
-        
-    c, words_in_batch, _ = self.session.run(
+    
+    if train:
+      c, words_in_batch, _ = self.session.run(
         [self.model.avg_loss, self.model.words_in_batch, self.train_op], 
         feed_dict)
-    return c, words_in_batch
+      return c, words_in_batch
+    else:
+      # just compute the forward pass
+      return self.session.run([self.model.avg_loss, self.model.words_in_batch],
+                              feed_dict)
 
 if __name__ == '__main__':
   optimizer = {'sgd': tf.train.GradientDescentOptimizer,
@@ -91,9 +95,9 @@ if __name__ == '__main__':
 
   df = LoadData(args.data)
   users = df.groupby('user')
-  avg_time = MovingAvg(0.95)
+  avg_time = MovingAvg(0.95)  
 
-  stop = '</S>'
+  stop = '</S>'  # decide if we stop at first space or not
   if args.partial:
     stop = ' '
 
@@ -128,9 +132,8 @@ if __name__ == '__main__':
         result['top_completion'] = qlist[0]
         result['prefix_len'] = int(prefix_len)
 
-      c, words_in_batch = mLow.Train(row.query_)
-      result['length'] = words_in_batch
-      result['cost'] = c
+      result['cost'], result['length'] = mLow.Train(row.query_,
+                                                    train=i==len(grp) - 1)
       print result
       counter += 1
       t = avg_time.Update(time.time() - start_time)

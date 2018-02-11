@@ -42,6 +42,10 @@ class MetaModel(object):
       self.session.run(tf.global_variables_initializer())
       saver.restore(self.session, os.path.join(self.expdir, 'model.bin'))
 
+  def MakeSessionAndRestore(self, threads=8):
+    self.MakeSession(threads)
+    self.Restore()
+
 
 class Model(object):
   """Defines the Tensorflow graph for training and testing a model."""
