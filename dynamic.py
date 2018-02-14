@@ -34,12 +34,12 @@ if __name__ == '__main__':
 class DynamicModel(MetaModel):
     
   def __init__(self, expdir, learning_rate=None, threads=8,
-               optimizer=tf.train.GradientDescentOptimizer):
+               optimizer=tf.train.AdagradOptimizer):
     super(DynamicModel, self).__init__(expdir)
 
     if learning_rate is None:  # set the default learning rates
       if self.params.use_lowrank_adaptation:
-        learning_rate = 0.23
+        learning_rate = 0.15
       else:
         learning_rate = 0.925
 
@@ -133,7 +133,7 @@ if __name__ == '__main__':
         result['prefix_len'] = int(prefix_len)
 
       result['cost'], result['length'] = mLow.Train(row.query_,
-                                                    train=i==len(grp) - 1)
+                                                    train=i!=len(grp) - 1)
       print result
       counter += 1
       t = avg_time.Update(time.time() - start_time)

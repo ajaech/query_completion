@@ -50,13 +50,15 @@ class MetaModel(object):
 class Model(object):
   """Defines the Tensorflow graph for training and testing a model."""
 
-  def __init__(self, params, training_mode=True, optimizer=tf.train.AdamOptimizer):
+  def __init__(self, params, training_mode=True, optimizer=tf.train.AdamOptimizer,
+               learning_rate=0.001):
     self.params = params
-    self.BuildGraph(params, training_mode=training_mode, optimizer=optimizer)
+    opt = optimizer(learning_rate)
+    self.BuildGraph(params, training_mode=training_mode, optimizer=opt)
     if not training_mode:
       self.BuildDecoderGraph()
 
-  def BuildGraph(self, params, training_mode=True, optimizer=tf.train.AdamOptimizer):
+  def BuildGraph(self, params, training_mode=True, optimizer=None):
     self.queries = tf.placeholder(tf.int32, [None, params.max_len], name='queries')
     self.query_lengths = tf.placeholder(tf.int32, [None], name='query_lengths')
     self.user_ids = tf.placeholder(tf.int32, [None], name='user_ids')
@@ -79,7 +81,9 @@ class Model(object):
 
     user_embeddings = tf.nn.embedding_lookup(self.user_embed_mat, self.user_ids)
 
+    self.use_time_features = False
     if hasattr(params, 'use_time_features') and params.use_time_features:
+      self.use_time_features = True
       self.dayofweek = tf.placeholder(tf.int32, [None], name='dayofweek')
       self.hourofday = tf.placeholder(tf.int32, [None], name='hourofday')
       self.day_embed_mat = tf.get_variable('day_embed_mat', [7, 2])
@@ -125,7 +129,7 @@ class Model(object):
     self.avg_loss = total_loss / self.words_in_batch
 
     if training_mode:
-      self.train_op = optimizer(0.001).minimize(self.avg_loss)
+      self.train_op = optimizer.minimize(self.avg_loss)
 
   def BuildDecoderGraph(self):
     self.prev_word = tf.placeholder(tf.int32, [None], name='prev_word')

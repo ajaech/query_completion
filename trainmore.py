@@ -42,7 +42,8 @@ val_df = LoadData(args.valdata)
 valdata = Dataset(val_df, char_vocab, user_vocab, max_len=params.max_len,
                   batch_size=params.batch_size)
 
-model = Model(params, optimizer=tf.train.GradientDescentOptimizer)
+model = Model(params, optimizer=tf.train.GradientDescentOptimizer,
+              learning_rate=0.05)
 saver = tf.train.Saver(tf.global_variables())
 config = tf.ConfigProto(inter_op_parallelism_threads=args.threads,
                         intra_op_parallelism_threads=args.threads)
@@ -56,7 +57,7 @@ for idx in range(300000):
   feed_dict[model.dropout_keep_prob] = params.dropout
   c, _ = session.run([model.avg_loss, model.train_op], feed_dict)
   cc = avg_loss.Update(c)
-  if idx % 50 == 0 and idx > 0:
+  if idx % 20 == 0 and idx > 0:
     val_c = session.run(model.avg_loss, valdata.GetFeedDict(model))
     logging.info({'iter': idx, 'cost': cc, 'rawcost': c,
                   'valcost': val_c})
