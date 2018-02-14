@@ -51,12 +51,12 @@ valdata = """
  --valdata /g/ssli/data/LowResourceLM/aol/queries06.dev.txt.gz""".replace('\n', ' ')
 
 
-for i in range(30, 32):
+for i in range(22, 28):
   force = ('mikolov', 'lowrank')[i % 2]
   d = GetRandomSetting(force_case=force)
   fname = os.path.join('settings', '{0}.json'.format(i))
   with open(fname, 'w') as f:
     json.dump(d, f)
 
-    cmd = 'python trainer.py /n/falcon/s0/ajaech/aolexps/t{0} --threads {1} {2} {3} 2> /n/falcon/s0/ajaech/aolexps/error.t{0}.log'.format(i, threads, data, valdata)
+    cmd = 'python trainmore.py /n/falcon/s0/ajaech/aolexps/g{0} --threads {1} {2} {3} 2> /n/falcon/s0/ajaech/aolexps/error.g{0}.log'.format(i, threads, data, valdata)
   print cmd

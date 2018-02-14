@@ -67,7 +67,7 @@ def FastLoadDynamic(filename):
             dynamic_df['score'] = dynamic_df['score'].astype(float)
         return dynamic_df
 
-rank_data = FastLoadDynamic('/n/falcon/s0/ajaech/aolexps/g26/9dynamic.txt')
+rank_data = FastLoadDynamic('/n/falcon/s0/ajaech/aolexps/g23/7dynamic.txt')
 
 for i in range(len(rank_data)):
     row = rank_data.iloc[i]
