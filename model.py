@@ -4,7 +4,6 @@ from factorcell import FactorCell
 from vocab import Vocab
 import helper
 
-import code
 
 class MetaModel(object):
   """Helper class for loading models."""
