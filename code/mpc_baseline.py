@@ -1,9 +1,10 @@
-import numpy as np
+import gzip
 import os
 import pandas
 import pygtrie
 import re
 import sys
+import numpy as np
 from dataset import LoadData
 from helper import GetPrefixLen
 
@@ -44,7 +45,7 @@ regex_eval = re.compile(r"'(\w*)': '?([^,]+)'?[,}]")
 
 def FastLoadDynamic(filename):
     rows = []
-    with open(filename, 'r') as f:
+    with gzip.open(filename, 'r') as f:
         for line in f:
             matches = regex_eval.finditer(line)
             d = dict([m.groups() for m in matches])
@@ -62,7 +63,7 @@ def FastLoadDynamic(filename):
             dynamic_df['score'] = dynamic_df['score'].astype(float)
         return dynamic_df
 
-rank_data = FastLoadDynamic('/n/falcon/s0/ajaech/aolexps/g23/7dynamic.txt')
+rank_data = FastLoadDynamic('../data/predictions.log.gz')
 
 for i in range(len(rank_data)):
     row = rank_data.iloc[i]
