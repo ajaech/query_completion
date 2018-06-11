@@ -1,3 +1,4 @@
+"""Helper functions for beam search."""
 import numpy as np
 from Queue import PriorityQueue
 

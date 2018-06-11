@@ -1,4 +1,3 @@
-import collections
 import sys
 
 import numpy as np

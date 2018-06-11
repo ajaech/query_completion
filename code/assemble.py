@@ -1,3 +1,7 @@
+"""
+This script is used to create a summary report of key metrics for each 
+experiment.
+"""
 import glob
 import json
 import numpy as np
