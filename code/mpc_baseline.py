@@ -2,6 +2,7 @@ import numpy as np
 import os
 import pandas
 import pygtrie
+import re
 import sys
 from dataset import LoadData
 from helper import GetPrefixLen
@@ -10,7 +11,7 @@ import code
 
 query_trie = pygtrie.CharTrie()
 
-dirname = '/g/ssli/data/LowResourceLM/aol'
+dirname = '../data'
 filenames = ['queries01.train.txt.gz', 'queries02.train.txt.gz',
              'queries03.train.txt.gz', 'queries04.train.txt.gz', 
              'queries05.train.txt.gz', 'queries06.train.txt.gz'
@@ -31,19 +32,13 @@ def GetTopK(prefix, k=100):
     cache[prefix] = queries[:k]
     return queries[:k]
 
-test_data = ['queries01.dev.txt.gz']
-#test_data = ['queries08.train.txt.gz', 'queries08.dev.txt.gz', 
-#             'queries08.test.txt.gz']
-df = LoadData([os.path.join(dirname, f) for f in test_data],
-              split=False)
-users = df.groupby('user')
 
 def GetRankInList(query, qlist):
   if query not in qlist:
     return 0
   return 1.0 / (1.0 + qlist.index(query))
 
-import re
+
 
 regex_eval = re.compile(r"'(\w*)': '?([^,]+)'?[,}]")
 
