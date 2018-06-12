@@ -12,7 +12,9 @@ class MetaModel(object):
     self.expdir = expdir
     self.params = helper.GetParams(os.path.join(expdir, 'char_vocab.pickle'), 'eval', 
                                    expdir)
+    # mapping of characters to indices
     self.char_vocab = Vocab.Load(os.path.join(expdir, 'char_vocab.pickle'))
+    # mapping of user ids to indices
     self.user_vocab = Vocab.Load(os.path.join(expdir, 'user_vocab.pickle'))
     self.params.vocab_size = len(self.char_vocab)
     self.params.user_vocab_size = len(self.user_vocab)
@@ -24,18 +26,20 @@ class MetaModel(object):
       self.char_tensor = tf.constant(self.char_vocab.GetWords(), name='char_tensor')
       self.beam_chars = tf.nn.embedding_lookup(self.char_tensor, self.model.selected)
 
-
   def Lock(self, user_id=0):
+    """Locking precomputes the adaptation for a given user."""
     self.session.run(self.model.decoder_cell.lock_op,
                      {self.model.user_ids: [user_id]})
 
   def MakeSession(self, threads=8):
+    """Create the session with the given number of threads."""
     config = tf.ConfigProto(inter_op_parallelism_threads=threads,
                             intra_op_parallelism_threads=threads)
     with self.graph.as_default():
       self.session = tf.Session(config=config)
 
   def Restore(self):
+    """Initialize all variables and restore model from disk."""
     with self.graph.as_default():
       saver = tf.train.Saver(tf.trainable_variables())
       self.session.run(tf.global_variables_initializer())
@@ -62,17 +66,18 @@ class Model(object):
     self.query_lengths = tf.placeholder(tf.int32, [None], name='query_lengths')
     self.user_ids = tf.placeholder(tf.int32, [None], name='user_ids')
 
-    x = self.queries[:, :-1]
-    y = self.queries[:, 1:]  # predict y from x
+    x = self.queries[:, :-1]  # strip off the end of query token
+    y = self.queries[:, 1:]   # need to predict y from x
 
     self.char_embeddings = tf.get_variable(
         'char_embeddings', [params.vocab_size, params.char_embed_size])
     self.char_bias = tf.get_variable('char_bias', [params.vocab_size])
-    self.user_embed_mat = tf.get_variable(
+    self.user_embed_mat = tf.get_variable(  # this defines the user embeddings
         'user_embed_mat', [params.user_vocab_size, params.user_embed_size])
 
     inputs = tf.nn.embedding_lookup(self.char_embeddings, x)
 
+    # create a mask to zero out the loss for the padding tokens
     indicator = tf.sequence_mask(self.query_lengths - 1, params.max_len - 1)
     _mask = tf.where(indicator, tf.ones_like(x, dtype=tf.float32),
                      tf.zeros_like(x, dtype=tf.float32))
@@ -105,6 +110,7 @@ class Model(object):
       outputs, _ = tf.nn.dynamic_rnn(self.decoder_cell, inputs,
                                      sequence_length=self.query_lengths,
                                      dtype=tf.float32)
+      # reshape outputs to 2d before passing to the output layer
       reshaped_outputs = tf.reshape(outputs, [-1, params.num_units])
       projected_outputs = tf.layers.dense(reshaped_outputs, params.char_embed_size,
                                           name='proj')
@@ -118,6 +124,8 @@ class Model(object):
       logits=reshaped_logits, labels=reshaped_labels)
     masked_loss = tf.multiply(reshaped_loss, reshaped_mask)
 
+    # reshape the loss back to the input size in order to compute
+    # the per sentence loss
     self.per_word_loss = tf.reshape(masked_loss, tf.shape(x))
     self.per_sentence_loss = tf.div(tf.reduce_sum(self.per_word_loss, 1),
                                     tf.reduce_sum(_mask, 1))
@@ -131,28 +139,36 @@ class Model(object):
       self.train_op = optimizer.minimize(self.avg_loss)
 
   def BuildDecoderGraph(self):
+    """This part of the graph is only used for evaluation.
+    
+    It computes just a single step of the LSTM.
+    """
     self.prev_word = tf.placeholder(tf.int32, [None], name='prev_word')
     self.prev_hidden_state = tf.placeholder(
       tf.float32, [None, 2 * self.params.num_units], name='prev_hidden_state')
     prev_c = self.prev_hidden_state[:, :self.params.num_units]
     prev_h = self.prev_hidden_state[:, self.params.num_units:]
+
+    # temperature can be used to tune diversity of the decoding
     self.temperature = tf.placeholder_with_default([1.0], [1])
 
     prev_embed = tf.nn.embedding_lookup(self.char_embeddings, self.prev_word)
 
     state = tf.nn.rnn_cell.LSTMStateTuple(prev_c, prev_h)
-    result, (next_c, next_h) = self.decoder_cell(prev_embed, state,
-                                                           use_locked=True)
+    result, (next_c, next_h) = self.decoder_cell(
+      prev_embed, state, use_locked=True)
     self.next_hidden_state = tf.concat([next_c, next_h], 1)
 
     with tf.variable_scope('rnn', reuse=True):
-      proj_result = tf.layers.dense(result, self.params.char_embed_size,
-                                    reuse=True, name='proj')
+      proj_result = tf.layers.dense(
+        result, self.params.char_embed_size, reuse=True, name='proj')
     logits = tf.matmul(proj_result, self.char_embeddings, 
                        transpose_b=True) + self.char_bias
     prevent_unk = tf.one_hot([0], self.params.vocab_size, -30.0)
     self.next_prob = tf.nn.softmax(prevent_unk + logits / self.temperature)
     self.next_log_prob = tf.nn.log_softmax(logits / self.temperature)
+    
+    # return the top `beam_size` number of characters for use in decoding
     self.beam_size = tf.placeholder_with_default(1, (), name='beam_size')
     log_probs, self.selected = tf.nn.top_k(self.next_log_prob, self.beam_size)
     self.selected_p = -log_probs  # cost is the negative log likelihood
