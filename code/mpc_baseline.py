@@ -1,3 +1,4 @@
+from __future__ import print_function
 import gzip
 import os
 import pandas
@@ -8,7 +9,6 @@ import numpy as np
 from dataset import LoadData
 from helper import GetPrefixLen
 
-import code
 
 query_trie = pygtrie.CharTrie()
 
@@ -40,34 +40,38 @@ def GetRankInList(query, qlist):
   return 1.0 / (1.0 + qlist.index(query))
 
 
-
 regex_eval = re.compile(r"'(\w*)': '?([^,]+)'?[,}]")
 
 def FastLoadDynamic(filename):
     rows = []
     with gzip.open(filename, 'r') as f:
-        for line in f:
-            matches = regex_eval.finditer(line)
-            d = dict([m.groups() for m in matches])
-            if len(d) > 0:
-                rows.append(d)
-            else:
-                print 'bad line'
-                print line
-        dynamic_df = pandas.DataFrame(rows)
-        if len(dynamic_df) > 0:
-            if 'cost' in dynamic_df.columns:
-                dynamic_df['cost'] = dynamic_df.cost.astype(float)
-            if 'length' in dynamic_df.columns:
-                dynamic_df['length'] = dynamic_df['length'].astype(float)
-            dynamic_df['score'] = dynamic_df['score'].astype(float)
-        return dynamic_df
+      for line in f:        
+        if type(line) != str:
+          line = line.decode('utf8')  # for python3 compatibility
+        matches = regex_eval.finditer(line)
+        d = dict([m.groups() for m in matches])
+        if len(d) > 0:
+          rows.append(d)
+        else:
+          print('bad line')
+          print(line)
+    dynamic_df = pandas.DataFrame(rows)
+    if len(dynamic_df) > 0:
+        if 'cost' in dynamic_df.columns:
+            dynamic_df['cost'] = dynamic_df.cost.astype(float)
+        if 'length' in dynamic_df.columns:
+            dynamic_df['length'] = dynamic_df['length'].astype(float)
+        dynamic_df['score'] = dynamic_df['score'].astype(float)
+    return dynamic_df
 
 rank_data = FastLoadDynamic('../data/predictions.log.gz')
 
 for i in range(len(rank_data)):
     row = rank_data.iloc[i]
-    query = row['query'][:-1].decode('string_escape')
+    if sys.version_info.major == 2:
+      query = row['query'][:-1].decode('string_escape')
+    else:  #python3 compatability
+      query = row['query'][:-1].encode('utf8').decode('unicode_escape')
     query_len = len(query)
 
     # offset by one because of missing <S> token
@@ -85,7 +89,6 @@ for i in range(len(rank_data)):
     result = {'query': query, 'prefix_len': int(prefix_len),
               'score': score, 'user': row.user, 
               'prefix_not_found': prefix_not_found}
-    print result
+    print(result)
     if i % 100 == 0:
       sys.stdout.flush()
-
