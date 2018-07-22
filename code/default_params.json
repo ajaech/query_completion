@@ -10,5 +10,5 @@
     "rank": 24,
     "iters": 50000,
     "batch_size": 48,
-    "use_time_features": true
+    "use_time_features": false
 }
