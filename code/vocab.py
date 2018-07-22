@@ -46,6 +46,7 @@ class Vocab(object):
       token_counts.update(line)
 
     tokenset = set()
+    token_counts[unk_symbol] = 0  # initalize this count to zero
     for word in token_counts.keys():
       if max_length and len(word) > max_length:
         continue
