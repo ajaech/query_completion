@@ -1,3 +1,4 @@
+from __future__ import print_function
 import argparse
 import numpy as np
 import tensorflow as tf
@@ -134,7 +135,7 @@ if __name__ == '__main__':
 
       result['cost'], result['length'] = mLow.Train(row.query_,
                                                     train=i!=len(grp) - 1)
-      print result
+      print(result)
       counter += 1
       t = avg_time.Update(time.time() - start_time)
 

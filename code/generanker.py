@@ -1,3 +1,4 @@
+from __future__ import print_function
 import argparse
 import pandas
 import tensorflow as tf
@@ -39,6 +40,6 @@ for i in range(23000):
   
   result = {'query': row.query_, 'prefix_len': int(prefix_len),
             'score': score, 'user': row.user}
-  print result
+  print(result)
   if i % 10 == 0:
     sys.stdout.flush()
