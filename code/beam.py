@@ -1,6 +1,7 @@
 """Helper functions for beam search."""
 import numpy as np
-from Queue import PriorityQueue
+from queue import PriorityQueue
+from future.utils import implements_iterator
 
 
 def InitBeam(phrase, user_id, m):
@@ -65,11 +66,14 @@ class BeamQueue(object):
   def __iter__(self):
     return self
 
-  def next(self):
+  def __next__(self):
     if not self.q.empty():
       _, item = self.q.get()
       return item
-    raise StopIteration
+    raise StopIteration    
+
+  def next(self):
+    return self.__next__()
 
 
 def GetCompletions(prefix, user_id, m, branching_factor=8, beam_size=300, 
