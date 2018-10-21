@@ -74,8 +74,7 @@ for i in range(len(rank_data)):
       query = row['query'][:-1].encode('utf8').decode('unicode_escape')
     query_len = len(query)
 
-    # offset by one because of missing <S> token
-    prefix_len = int(row.prefix_len) - 1
+    prefix_len = int(row.prefix_len)
 
     prefix_not_found = False
     prefix = query[:prefix_len]
