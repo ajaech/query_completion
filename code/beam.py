@@ -32,6 +32,21 @@ class BeamItem(object):
     else:
       self.words = [prev_word]
     self.prev_hidden = prev_hidden
+    
+  def __le__(self, other):
+    return self.log_probs <= other.log_probs
+
+  def __lt__(self, other):
+    return self.log_probs < other.log_probs
+
+  def __ge__(self, other):
+    return self.log_probs >= other.log_probs
+
+  def __gt__(self, other):
+    return self.log_probs > other.log_probs
+
+  def __eq__(self, other):
+    return self.log_probs == other.log_probs
 
   def __str__(self):
     return 'beam {0:.3f}: '.format(self.log_probs) + ''.join(self.words)
